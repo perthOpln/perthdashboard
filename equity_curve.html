@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Equity Analytics</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#000000',
+                        darkCard: '#09090b',
+                        accentGreen: '#10b981',
+                        accentRed: '#ef4444',
+                        accentBlue: '#3b82f6',
+                        purple: {
+                            400: '#a78bfa',
+                            500: '#8b5cf6',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .heatmap-cell { @apply py-3 px-1 text-center border-r border-zinc-900 text-[10px] font-black transition-all duration-200 bg-black; }
+        .heatmap-year { @apply font-black text-zinc-500 bg-black border-l border-zinc-900 w-16 text-[11px]; }
+        .heatmap-annual { @apply font-black border-l border-zinc-900 border-r border-zinc-900 bg-black text-[11px]; }
+        
+        /* Heatmap Intensities */
+        .h-pos-1 { color: #10b981; }
+        .h-pos-2 { color: #10b981; }
+        .h-pos-3 { color: #10b981; }
+        .h-pos-4 { color: #10b981; }
+
+        .h-neg-1 { color: #ef4444; }
+        .h-neg-2 { color: #ef4444; }
+        .h-neg-3 { color: #ef4444; }
+        .h-neg-4 { color: #ef4444; }
+
+        .heatmap-row:hover .heatmap-cell:not(.heatmap-year):not(.heatmap-annual) { filter: brightness(1.2); }
+        .open-trades-table { table-layout: fixed; width: 100%; }
+        .open-trades-table th,
+        .open-trades-table td { white-space: nowrap; }
+        .open-trades-table .col-open-time { min-width: 160px; }
+        .open-trades-table .col-symbol { min-width: 100px; }
+        .open-trades-table .col-volume { min-width: 80px; }
+        .open-trades-table .col-open-price,
+        .open-trades-table .col-tp,
+        .open-trades-table .col-sl,
+        .open-trades-table .col-current-price,
+        .open-trades-table .col-gain,
+        .open-trades-table .col-commission,
+        .open-trades-table .col-swap,
+        .open-trades-table .col-profit { min-width: 100px; }
+        .open-trades-table .col-holding { min-width: 110px; }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-100 font-sans min-h-screen transition-colors duration-200">
+
+    <main class="max-w-7xl mx-auto p-4 py-12 space-y-6">
+
+        <!-- Global Market Clocks -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm">
+            <div class="flex flex-col gap-1 text-center">
+                <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
+                <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
+            </div>
+            <div class="flex flex-row flex-nowrap justify-center gap-1 mt-2 overflow-x-auto pb-1">
+                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">New York</span>
+                            <i id="ny-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
+                        </div>
+                        <p id="ny-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                        <p id="ny-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                    </div>
+                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">London</span>
+                            <i id="london-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
+                        </div>
+                        <p id="london-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                        <p id="london-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                    </div>
+                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Sydney</span>
+                            <i id="sydney-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
+                        </div>
+                        <p id="sydney-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                        <p id="sydney-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                    </div>
+                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Tokyo</span>
+                            <i id="tokyo-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
+                        </div>
+                        <p id="tokyo-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                        <p id="tokyo-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                    </div>
+            </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            <!-- Gain % Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-emerald-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-percent"></i>
+                </div>
+                <p class="text-xs text-slate-400 font-bold">Gain (TWR)</p>
+                <h3 id="metric-twr-gain" class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">--%</h3>
+                <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                    <i class="fa-solid fa-circle-check"></i> <span id="gain-method-subtext">Geometric compounding</span>
+                </p>
+            </div>
+
+            <!-- Absolute Gain % Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-teal-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
+                <p class="text-xs text-slate-400 font-bold">Abs. Gain</p>
+                <h3 id="metric-abs-gain" class="text-2xl sm:text-3xl font-black text-teal-400 mt-1">--%</h3>
+                <p class="text-[10px] text-slate-500 mt-1">Profit / Total Deposits</p>
+            </div>
+
+            <!-- Absolute Profit Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-blue-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-money-bill-trend-up"></i>
+                </div>
+                <p class="text-xs text-slate-400 font-bold">Net Profit</p>
+                <h3 id="metric-net-profit" class="text-2xl sm:text-3xl font-black text-slate-100 mt-1">$--</h3>
+                <p id="metric-roi" class="text-[10px] text-slate-500 mt-1">Profit value sum</p>
+            </div>
+
+            <!-- Balance Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-indigo-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <p class="text-xs text-slate-400 font-bold">Balance</p>
+                <h3 id="metric-balance" class="text-2xl sm:text-3xl font-black text-indigo-400 mt-1">$--</h3>
+                <p id="metric-deposits" class="text-[10px] text-slate-500 mt-1">Deposits: $--</p>
+            </div>
+
+            <!-- Drawdown Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-rose-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-circle-down"></i>
+                </div>
+                <p class="text-xs text-slate-400 font-bold">Max Drawdown</p>
+                <h3 id="metric-max-drawdown" class="text-2xl sm:text-3xl font-black text-rose-400 mt-1">--%</h3>
+                <p class="text-[10px] text-slate-500 mt-1">Max peak-to-trough drop</p>
+            </div>
+
+            <!-- Current Drawdown Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-purple-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-chart-line-down"></i>
+                </div>
+                <p class="text-xs text-slate-400 font-bold">Current Drawdown</p>
+                <h3 id="metric-current-drawdown" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">--%</h3>
+                <p class="text-[10px] text-slate-500 mt-1">From all-time peak</p>
+            </div>
+
+            <!-- Unrealized Profit Card -->
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-2 md:col-span-1">
+                <div class="absolute top-0 right-0 p-3 text-amber-500/10 text-5xl group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="flex items-center gap-2">
+                    <p class="text-xs text-slate-400 font-bold">Unrealized P/L</p>
+                    <span class="flex h-1.5 w-1.5 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                    </span>
+                </div>
+                <h3 id="metric-unrealized-pl" class="text-2xl sm:text-3xl font-black text-amber-400 mt-1">$--</h3>
+                <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1">Live Feed (Sheet 2)</p>
+            </div>
+        </div>
+
+        <!-- Main Chart & Sidebar Analytics -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Interactive Chart Panel -->
+            <div class="lg:col-span-2 bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-200">Equity Curve & Portfolio Gain</h2>
+                        <p class="text-xs text-slate-500">Track Time-Weighted Gain vs. Account Balance</p>
+                    </div>
+                    <div class="flex gap-2 bg-black p-1 rounded-lg border border-zinc-800">
+                        <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
+                        <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
+                    </div>
+                </div>
+                <div class="relative w-full h-[350px]">
+                    <canvas id="equityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Advanced Metrics and Info -->
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl space-y-4 font-sans">
+                <h2 class="text-sm font-bold text-slate-200 border-b border-zinc-800 pb-2">Key Trading Performance</h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Trades</p>
+                        <p id="stat-total-trades" class="text-lg font-bold text-slate-200 mt-0.5">--</p>
+                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Win Rate</p>
+                        <p id="stat-win-rate" class="text-lg font-bold text-emerald-400 mt-0.5">--%</p>
+                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Profit Factor</p>
+                        <p id="stat-profit-factor" class="text-lg font-bold text-slate-200 mt-0.5">--</p>
+                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Win</p>
+                        <p id="stat-avg-win" class="text-lg font-bold text-emerald-400 mt-0.5">$--</p>
+                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Loss</p>
+                        <p id="stat-avg-loss" class="text-lg font-bold text-rose-400 mt-0.5">$--</p>
+                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Max Consecutive Wins</p>
+                        <p id="stat-consec-wins" class="text-lg font-bold text-slate-200 mt-0.5">--</p>
+                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Ann. Sharpe Ratio</p>
+                        <p id="stat-sharpe-ratio" class="text-lg font-bold text-indigo-400 mt-0.5">0.00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Breakdown Grid and Transactions History -->
+        <div class="space-y-6">
+            <!-- Open Trades (Unrealized) -->
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-satellite-dish text-amber-400"></i> Open Positions (Unrealized)
+                    </h2>
+                    <span id="open-trades-count" class="text-xs bg-amber-900/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20">0 Active</span>
+                </div>
+                <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
+                    <table class="open-trades-table w-full text-xs text-left text-slate-300">
+                        <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
+                                            <tr>
+                                <th class="px-4 py-2.5 col-open-time">Open Time</th>
+                                <th class="px-4 py-2.5 col-symbol">Symbol</th>
+                                <th class="px-4 py-2.5 col-type">Type</th>
+                                <th class="px-4 py-2.5 text-right col-volume">Volume</th>
+                                <th class="px-4 py-2.5 text-right col-open-price">Open Price</th>
+                                <th class="px-4 py-2.5 text-right col-tp">TP</th>
+                                <th class="px-4 py-2.5 text-right col-sl">SL</th>
+                                <th class="px-4 py-2.5 text-right col-current-price">Current Price</th>
+                                <th class="px-4 py-2.5 text-right col-gain">Gain %</th>
+                                <th class="px-4 py-2.5 text-right col-commission">Commission</th>
+                                <th class="px-4 py-2.5 text-right col-swap">Swap</th>
+                                <th class="px-4 py-2.5 text-right col-profit">Profit</th>
+                                <th class="px-4 py-2.5 text-right col-holding">Holding</th>
+                            </tr>
+                        </thead>
+                        <tbody id="open-transaction-rows" class="divide-y divide-zinc-800">
+                            <tr>
+                                <td colspan="13" class="text-center py-8 text-slate-500">Connecting to Live Feed (Sheet 2)...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Monthly Heatmap -->
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
+                <h2 class="text-sm font-bold text-slate-200 mb-6 flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-days text-emerald-400"></i> Monthly Return Sheet (%)
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse border border-zinc-900">
+                        <thead>
+                            <tr class="text-[10px] font-black uppercase text-zinc-500 tracking-widest bg-black">
+                                <th class="py-3 px-2 border-b border-zinc-800 text-left border-r border-zinc-900">Year</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Jan</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Feb</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Mar</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Apr</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">May</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Jun</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Jul</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Aug</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Sep</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Oct</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Nov</th>
+                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Dec</th>
+                                <th class="py-3 px-2 border-b border-zinc-800 text-right">Annual</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthly-heatmap-body">
+                            <tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting cycles...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transaction Log -->
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-list text-teal-400"></i> Detailed Transactions History (By Close Date)
+                    </h2>
+                    <span id="history-count" class="text-xs bg-zinc-800 text-slate-300 px-2 py-0.5 rounded-full">0 Entries</span>
+                </div>
+                <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
+                    <table class="w-full text-xs text-left text-slate-300">
+                        <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
+                            <tr>
+                                <th class="px-4 py-2.5 text-left">In Time</th>
+                                <th class="px-4 py-2.5 text-left">Out Time</th>
+                                <th class="px-4 py-2.5 text-left">Symbol</th>
+                                <th class="px-4 py-2.5">Type</th>
+                                <th class="px-4 py-2.5 text-right">Volume</th>
+                                <th class="px-4 py-2.5 text-right">In Price</th>
+                                <th class="px-4 py-2.5 text-right">Out Price</th>
+                                <th class="px-4 py-2.5 text-right">Profit</th>
+                                <th class="px-4 py-2.5 text-right">Gain %</th>
+                                <th class="px-4 py-2.5 text-right">Commission</th>
+                                <th class="px-4 py-2.5 text-right">Swap</th>
+                                <th class="px-4 py-2.5 text-right">Magic</th>
+                                <th class="px-4 py-2.5 text-right">Holding Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-rows" class="divide-y divide-zinc-800">
+                            <tr>
+                                <td colspan="13" class="text-center py-8 text-slate-500">Awaiting data fetch...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div> 
+
+    </main>
+
+    <script>
+        // Global Configuration
+        const SPREADSHEET_ID = "2PACX-1vQQj8EzNYOAPc70wbmz--2hiq1tfeH76njnadmTVs-3UZIxH7JDcJuXzhDQeRw4Ee3hEtFbyYJP2yNg";
+
+        // Global State
+        let rawCSVData = [];
+        let mappedTransactions = [];
+        let chartInstance = null;
+        let activeChartType = 'gain'; // 'gain' or 'balance'
+        let gainCalculationMethod = 'compounded'; // Defaults to compounded
+        let portfolioDataChecksum = '';
+        let latestPortfolioBalance = NaN;
+        let columnMapping = {
+            date: '',
+            profit: '',
+            balance: '',
+            type: '',
+            openDate: '',
+            symbol: '',
+            volume: '',
+            openPrice: '',
+            closePrice: '',
+            magic: ''
+        };
+        let openTradeColumnMapping = {
+            time: '',
+            status: '',
+            symbol: '',
+            type: '',
+            volume: '',
+            openPrice: '',
+            currentPrice: '',
+            takeProfit: '',
+            stopLoss: '',
+            commission: '',
+            swap: '',
+            profit: ''
+        };
+
+        // UI Event Listeners
+        window.onload = function() {
+            updateWorldClocks();
+            setInterval(updateWorldClocks, 1000);
+            fetchAndParseCSV(true);
+            // Real-time loop for Unrealized Profit (Sheet 2)
+            fetchOpenTrades();
+            setInterval(fetchOpenTrades, 1000);
+            // Refresh portfolio data only when closed trades / transactions change.
+            setInterval(() => fetchAndParseCSV(false), 15000);
+        };
+
+        const OPEN_TRADES_GID = "1116835953"; // This GID points to the working live open positions feed
+
+        // Fetcher for Sheet 2
+        function fetchOpenTrades() {
+            const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?gid=${OPEN_TRADES_GID}&single=true&output=csv&t=${Date.now()}`;
+
+            Papa.parse(url, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (!results || !Array.isArray(results.data) || results.data.length === 0) {
+                        showOpenTradesError('Live feed unreachable or no data returned from Sheet 2.');
+                        return;
+                    }
+                    if (isHTMLResponse(results.data)) {
+                        showOpenTradesError('Live feed returned an HTML error page. Verify Sheet 2 is published and accessible.');
+                        return;
+                    }
+                    autoDetectOpenTradeColumns(results.meta.fields || [], results.data[0] || {});
+                    processOpenTrades(results.data);
+                },
+                error: function(err) {
+                    console.error('Live feed connection error', err);
+                    showOpenTradesError('Live feed fetch failed. See console for details.');
+                }
+            });
+        }
+
+        function showOpenTradesError(message) {
+            const tbody = document.getElementById('open-transaction-rows');
+            const countEl = document.getElementById('open-trades-count');
+            const metricEl = document.getElementById('metric-unrealized-pl');
+            if (countEl) countEl.textContent = 'Offline';
+            if (metricEl) {
+                metricEl.textContent = '--';
+                metricEl.className = 'text-2xl sm:text-3xl font-black mt-1 text-slate-400';
+            }
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">${message}</td></tr>`;
+            }
+        }
+
+        function getZoneInfo(timeZone) {
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone });
+            const offset = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
+                .formatToParts(now)
+                .find(part => part.type === 'timeZoneName')?.value || '';
+            return { time, offset };
+        }
+
+        function getGreetingFromHour(hour) {
+            if (hour >= 5 && hour < 12) return 'Good Morning, Perth!';
+            if (hour >= 12 && hour < 18) return 'Good Afternoon, Perth!';
+            return 'Good Evening, Perth!';
+        }
+
+        function updateWorldClocks() {
+            const cities = [
+                { id: 'ny-clock', iconId: 'ny-icon', offsetId: 'ny-offset', zone: 'America/New_York' },
+                { id: 'london-clock', iconId: 'london-icon', offsetId: 'london-offset', zone: 'Europe/London' },
+                { id: 'sydney-clock', iconId: 'sydney-icon', offsetId: 'sydney-offset', zone: 'Australia/Sydney' },
+                { id: 'tokyo-clock', iconId: 'tokyo-icon', offsetId: 'tokyo-offset', zone: 'Asia/Tokyo' }
+            ];
+
+            cities.forEach(city => {
+                const info = getZoneInfo(city.zone);
+                const clockEl = document.getElementById(city.id);
+                const offsetEl = document.getElementById(city.offsetId);
+                const iconEl = document.getElementById(city.iconId);
+                if (clockEl) clockEl.textContent = info.time;
+                if (offsetEl) offsetEl.textContent = info.offset;
+                if (iconEl) {
+                    const hour = parseInt(new Intl.DateTimeFormat('en-US', { hour: '2-digit', hour12: false, timeZone: city.zone }).format(new Date()), 10);
+                    const isDay = hour >= 6 && hour < 18;
+                    iconEl.className = `fa-solid fa-${isDay ? 'sun' : 'moon'} ${isDay ? 'text-amber-400' : 'text-slate-400'} text-[9px]`;
+                }
+            });
+
+            const bangkokInfo = getZoneInfo('Asia/Bangkok');
+            const bangkokText = document.getElementById('bangkok-text');
+            if (bangkokText) bangkokText.textContent = `Bangkok: ${bangkokInfo.time} (${bangkokInfo.offset})`;
+
+            const perthHour = parseInt(new Intl.DateTimeFormat('en-US', {
+                hour: '2-digit',
+                hour12: false,
+                timeZone: 'Australia/Perth'
+            }).format(new Date()), 10);
+            const greetingEl = document.getElementById('perth-greeting');
+            if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour);
+        }
+
+        function isHTMLResponse(dataRows) {
+            if (!Array.isArray(dataRows) || dataRows.length === 0) return false;
+            const sample = dataRows[0];
+            const text = Array.isArray(sample)
+                ? sample.join(' ').toLowerCase()
+                : Object.values(sample).join(' ').toLowerCase();
+            return /<html|<!doctype|google drive|errormessage|cannot open file|ไม่สามารถเปิดไฟล์ได้ในเวลานี้/.test(text);
+        }
+
+        function autoDetectOpenTradeColumns(fields, sampleRow) {
+            if (!fields || fields.length === 0) return;
+            const normalize = (text) => String(text || '').toLowerCase().trim();
+            const exactName = (name) => fields.find(h => normalize(h) === normalize(name));
+            const findHeader = (aliases, exclude = []) => {
+                const normalizedExclude = exclude.map(e => normalize(e));
+                let found = aliases.map(a => exactName(a)).find(h => h);
+                if (found) return found;
+                found = fields.find(h => {
+                    const header = normalize(h);
+                    return aliases.some(alias => header === normalize(alias)) && !normalizedExclude.some(ex => header.includes(ex));
+                });
+                if (found) return found;
+                found = fields.find(h => {
+                    const header = normalize(h);
+                    return aliases.some(alias => header.includes(normalize(alias))) && !normalizedExclude.some(ex => header.includes(ex));
+                });
+                if (found) return found;
+                if (sampleRow) {
+                    found = fields.find(h => {
+                        const sampleValue = normalize(sampleRow[h]);
+                        return aliases.some(alias => sampleValue.includes(normalize(alias))) && !normalizedExclude.some(ex => sampleValue.includes(ex));
+                    });
+                }
+                return found || '';
+            };
+
+            // Known Sheet 2 header names should be matched exactly.
+            openTradeColumnMapping.time = findHeader(['In Time', 'Open Time', 'Time', 'Date', 'Timestamp']);
+            openTradeColumnMapping.status = findHeader(['Status', 'Position Status']);
+            openTradeColumnMapping.symbol = findHeader(['Symbol', 'Pair', 'Market', 'Asset']);
+            openTradeColumnMapping.type = findHeader(['Type', 'Order', 'Side', 'Action']);
+            openTradeColumnMapping.volume = findHeader(['Volume', 'Size', 'Lots']);
+            openTradeColumnMapping.openPrice = findHeader(['In Price', 'Open Price', 'Entry Price', 'Open Rate']);
+            openTradeColumnMapping.currentPrice = findHeader(['Current Price', 'Close Price', 'Market Price', 'Last Price']);
+            openTradeColumnMapping.takeProfit = findHeader(['Take Profit Price', 'Take Profit', 'TP', 'Target']);
+            openTradeColumnMapping.stopLoss = findHeader(['Stop Loss Price', 'Stop Loss', 'SL', 'Stop Losses']);
+            openTradeColumnMapping.commission = findHeader(['Commission', 'Comm']);
+            openTradeColumnMapping.swap = findHeader(['Swap']);
+            openTradeColumnMapping.profit = findHeader(['Profit', 'P&L', 'PnL', 'Gain', 'Net'], ['Take Profit']);
+
+            // Enforce exact Sheet 2 headers if present in the published feed.
+            if (fields.some(h => normalize(h) === 'current price')) {
+                openTradeColumnMapping.currentPrice = fields.find(h => normalize(h) === 'current price');
+            }
+            if (fields.some(h => normalize(h) === 'profit')) {
+                openTradeColumnMapping.profit = fields.find(h => normalize(h) === 'profit');
+            }
+            if (fields.some(h => normalize(h) === 'in price')) {
+                openTradeColumnMapping.openPrice = fields.find(h => normalize(h) === 'in price');
+            }
+            if (fields.some(h => normalize(h) === 'take profit price')) {
+                openTradeColumnMapping.takeProfit = fields.find(h => normalize(h) === 'take profit price');
+            }
+            if (fields.some(h => normalize(h) === 'stop loss price')) {
+                openTradeColumnMapping.stopLoss = fields.find(h => normalize(h) === 'stop loss price');
+            }
+        }
+
+        function formatDuration(ms) {
+            if (isNaN(ms) || ms < 0) return '—';
+            const totalSeconds = Math.floor(ms / 1000);
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor((totalSeconds % 86400) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(days).padStart(2, '0')}D:${String(hours).padStart(2, '0')}H:${String(minutes).padStart(2, '0')}M:${String(seconds).padStart(2, '0')}S`;
+        }
+
+        function parseOpenTradeDate(value) {
+            if (!value) return null;
+            let text = String(value).trim();
+            text = text.replace(/\./g, '-').replace(/\s+/g, ' ');
+
+            const hasTimezone = /([+-]\d{2}:?\d{2}|Z)$/i.test(text);
+            let isoText = text;
+            if (!hasTimezone) {
+                isoText = text.replace(' ', 'T') + '+03:00';
+            }
+
+            let dt = new Date(isoText);
+            if (isNaN(dt.getTime())) {
+                dt = new Date(text.replace(' ', 'T'));
+            }
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+
+        function parseNumberValue(value) {
+            if (value === null || value === undefined) return NaN;
+            const cleaned = String(value).replace(/\s+/g, '').replace(/,/g, '');
+            return parseFloat(cleaned);
+        }
+
+        function findArrayHeaderIndex(headerRow, aliases) {
+            if (!Array.isArray(headerRow)) return -1;
+            const lower = headerRow.map(cell => String(cell || '').toLowerCase());
+            return lower.findIndex(text => aliases.some(alias => text.includes(alias)));
+        }
+
+        function detectOpenTradeArrayIndices(headerRow) {
+            return {
+                time: findArrayHeaderIndex(headerRow, ['open time', 'time', 'date', 'in time', 'datetime', 'timestamp']),
+                status: findArrayHeaderIndex(headerRow, ['status', 'position status']),
+                symbol: findArrayHeaderIndex(headerRow, ['symbol', 'pair', 'market', 'asset']),
+                type: findArrayHeaderIndex(headerRow, ['type', 'order', 'side', 'action']),
+                volume: findArrayHeaderIndex(headerRow, ['volume', 'size', 'lots']),
+                openPrice: findArrayHeaderIndex(headerRow, ['open price', 'entry price', 'open', 'price in', 'in price', 'open rate']),
+                takeProfit: findArrayHeaderIndex(headerRow, ['take profit', 'tp', 'target', 'target price', 'limit price']),
+                stopLoss: findArrayHeaderIndex(headerRow, ['stop loss', 'sl', 'stoploss', 'stop-loss', 'stop price']),
+                currentPrice: findArrayHeaderIndex(headerRow, ['current price', 'close price', 'price', 'close', 'current', 'market price', 'last price']),
+                commission: findArrayHeaderIndex(headerRow, ['commission', 'comm']),
+                swap: findArrayHeaderIndex(headerRow, ['swap']),
+                profit: findArrayHeaderIndex(headerRow, ['profit', 'p&l', 'pnl', 'gain', 'net'])
+            };
+        }
+
+        function processOpenTrades(data) {
+            let totalUnrealized = 0;
+            const tbody = document.getElementById('open-transaction-rows');
+            const countEl = document.getElementById('open-trades-count');
+            const metricEl = document.getElementById('metric-unrealized-pl');
+            
+            if (!tbody) return;
+            
+            let trades = [];
+            if (!data || data.length === 0) return;
+
+            let arrayColumnMap = null;
+            if (Array.isArray(data[0]) && data[0].some(cell => /symbol|open|close|price|volume|profit|type|commission|swap/i.test(String(cell || '')))) {
+                arrayColumnMap = detectOpenTradeArrayIndices(data[0]);
+            }
+
+            let totalVolume = 0;
+            let totalCommission = 0;
+            let totalSwap = 0;
+
+            const getArrayValue = (row, idx, fallback) => {
+                if (typeof idx === 'number' && idx >= 0) {
+                    return String(row[idx] || '').trim();
+                }
+                return String(row[fallback] || '').trim();
+            };
+
+            const isOpenPositionRow = (rowObj, statusIdx = -1) => {
+                let status = '';
+                if (statusIdx >= 0 && Array.isArray(rowObj)) {
+                    status = String(rowObj[statusIdx] || '').trim();
+                }
+                if (!status && rowObj && typeof rowObj === 'object') {
+                    status = String(rowObj[openTradeColumnMapping.status] || rowObj['Status'] || '').trim();
+                }
+                if (!status) return true;
+                status = status.toLowerCase();
+                return ['unrealized', 'open', 'active', 'running'].includes(status);
+            };
+
+            data.forEach((row, rowIndex) => {
+                let time = '';
+                let symbol = '';
+                let type = '';
+                let volume = '';
+                let openPrice = '';
+                let takeProfit = '';
+                let stopLoss = '';
+                let currentPrice = '';
+                let commission = 0;
+                let swap = 0;
+                let profitValue = 0;
+                let isArrayRow = Array.isArray(row);
+
+                if (isArrayRow) {
+                    if (rowIndex === 0 && arrayColumnMap) return;
+                    if (arrayColumnMap) {
+                        if (!isOpenPositionRow(row, arrayColumnMap.status)) return;
+                        time = getArrayValue(row, arrayColumnMap.time, 1);
+                        symbol = getArrayValue(row, arrayColumnMap.symbol, 3);
+                        type = getArrayValue(row, arrayColumnMap.type, 4);
+                        volume = getArrayValue(row, arrayColumnMap.volume, 5);
+                        openPrice = getArrayValue(row, arrayColumnMap.openPrice, 6);
+                        takeProfit = getArrayValue(row, arrayColumnMap.takeProfit, 8);
+                        stopLoss = getArrayValue(row, arrayColumnMap.stopLoss, 9);
+                        currentPrice = getArrayValue(row, arrayColumnMap.currentPrice, 7);
+                        commission = parseNumberValue(getArrayValue(row, arrayColumnMap.commission, 11)) || 0;
+                        swap = parseNumberValue(getArrayValue(row, arrayColumnMap.swap, 12)) || 0;
+                        profitValue = parseNumberValue(getArrayValue(row, arrayColumnMap.profit, 10)) || 0;
+                    } else {
+                        if (rowIndex === 0 && (String(row[3] || '').toLowerCase().includes('symbol') || !row[1])) return;
+                        time = String(row[1] || '').trim();
+                        symbol = String(row[3] || '').trim();
+                        type = String(row[4] || '').trim();
+                        volume = String(row[5] || '').trim();
+                        openPrice = String(row[6] || '').trim();
+                        currentPrice = String(row[7] || '').trim();
+                        takeProfit = String(row[8] || '').trim();
+                        stopLoss = String(row[9] || '').trim();
+                        profitValue = parseNumberValue(row[10] || '0') || 0;
+                        commission = parseNumberValue(row[11] || '0') || 0;
+                        swap = parseNumberValue(row[12] || '0') || 0;
+                    }
+                } else {
+                    symbol = String(row[openTradeColumnMapping.symbol] || row['Symbol'] || '').trim();
+                    if (!symbol) {
+                        if (rowIndex === 0) return;
+                        symbol = String(row[3] || '').trim();
+                    }
+                    if (!isOpenPositionRow(row)) return;
+                    time = String(row[openTradeColumnMapping.time] || row['In Time'] || row['Time'] || row['Date'] || '').trim();
+                    type = String(row[openTradeColumnMapping.type] || row['Type'] || row['Action'] || '').trim();
+                    volume = String(row[openTradeColumnMapping.volume] || row['Volume'] || row['Size'] || row['Lots'] || '').trim();
+                    openPrice = String(row[openTradeColumnMapping.openPrice] || row['In Price'] || row['Open Price'] || row['Open'] || row['Entry Price'] || '').trim();
+                    takeProfit = String(row[openTradeColumnMapping.takeProfit] || row['Take Profit Price'] || row['TP'] || row['Take Profit'] || row['Target'] || '').trim();
+                    stopLoss = String(row[openTradeColumnMapping.stopLoss] || row['Stop Loss Price'] || row['SL'] || row['Stop Loss'] || row['Stop- Loss'] || '').trim();
+                    currentPrice = String(row[openTradeColumnMapping.currentPrice] || row['Current Price'] || row['Current'] || row['Close Price'] || row['Close'] || row['Price'] || row['Market Price'] || '').trim();
+                    commission = parseNumberValue(row[openTradeColumnMapping.commission] || row['Commission'] || row['Comm'] || '0') || 0;
+                    swap = parseNumberValue(row[openTradeColumnMapping.swap] || row['Swap'] || '0') || 0;
+                    profitValue = parseNumberValue(row[openTradeColumnMapping.profit] || row['Profit'] || row['P&L'] || row['PnL'] || '0') || 0;
+                }
+
+                if (!symbol || symbol === '—' || symbol === '0' || symbol.toLowerCase().includes('symbol')) return;
+                const openDateObj = parseOpenTradeDate(time);
+                const holdingMs = openDateObj ? Date.now() - openDateObj.getTime() : null;
+                totalUnrealized += profitValue;
+                totalCommission += commission;
+                totalSwap += swap;
+                const volumeNum = parseFloat(String(volume).replace(/[^0-9.-]/g, '')) || 0;
+                totalVolume += volumeNum;
+                trades.push({ time, symbol, type, volume, openPrice, takeProfit, stopLoss, currentPrice, commission, swap, profit: profitValue, openDateObj, holdingMs });
+            });
+
+            countEl.textContent = `${trades.length} Active`;
+            metricEl.textContent = (totalUnrealized >= 0 ? '$' : '-$') + Math.abs(totalUnrealized).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            metricEl.className = `text-2xl sm:text-3xl font-black mt-1 ${totalUnrealized >= 0 ? 'text-amber-400' : 'text-rose-400'}`;
+
+            tbody.innerHTML = '';
+            if (trades.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">No open positions detected.</td></tr>`;
+                return;
+            }
+
+            trades.forEach(t => {
+                const gainPercent = (!isNaN(latestPortfolioBalance) && latestPortfolioBalance !== 0)
+                    ? (t.profit / latestPortfolioBalance) * 100
+                    : 0;
+                const gainDisplay = latestPortfolioBalance && !isNaN(latestPortfolioBalance)
+                    ? `${gainPercent >= 0 ? '+' : ''}${gainPercent.toFixed(2)}%`
+                    : '—';
+                const holdingText = formatDuration(t.holdingMs);
+                const row = document.createElement('tr');
+                row.className = "hover:bg-zinc-900/60 transition-colors";
+                row.innerHTML = `
+                    <td class="px-4 py-2 text-slate-400 font-mono text-[11px] col-open-time">${t.time}</td>
+                    <td class="px-4 py-2 text-slate-200 font-bold col-symbol">${t.symbol}</td>
+                    <td class="px-4 py-2 col-type">
+                        <span class="text-[10px] font-bold uppercase ${t.type.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-rose-400'}">${t.type}</span>
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px] col-volume">${t.volume}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px] col-open-price">${t.openPrice || '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px] col-tp">${t.takeProfit || '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px] col-sl">${t.stopLoss || '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px] col-current-price">${t.currentPrice || '—'}</td>
+                    <td class="px-4 py-2 text-right font-bold ${gainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'} col-gain">${gainDisplay}</td>
+                    <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px] col-commission">$${parseFloat(t.commission || 0).toFixed(2)}</td>
+                    <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px] col-swap">$${parseFloat(t.swap || 0).toFixed(2)}</td>
+                    <td class="px-4 py-2 text-right font-bold ${t.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'} col-profit">
+                        ${t.profit >= 0 ? '+' : ''}$${t.profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px] col-holding">${holdingText}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            const totalGainPercent = (!isNaN(latestPortfolioBalance) && latestPortfolioBalance !== 0)
+                ? (totalUnrealized / latestPortfolioBalance) * 100
+                : NaN;
+            const totalGainDisplay = !isNaN(totalGainPercent)
+                ? `${totalGainPercent >= 0 ? '+' : ''}${totalGainPercent.toFixed(2)}%`
+                : '—';
+
+            const summaryRow = document.createElement('tr');
+            summaryRow.className = "bg-zinc-900/80 text-slate-200 font-semibold border-t border-zinc-800";
+            summaryRow.innerHTML = `
+                <td class="px-4 py-3 text-slate-300" colspan="3">Open Position Summary</td>
+                <td class="px-4 py-3 text-right font-mono text-[11px]">${totalVolume > 0 ? totalVolume.toFixed(2) : '—'}</td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3 text-right font-bold ${totalGainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${totalGainDisplay}</td>
+                <td class="px-4 py-3 text-right font-mono text-[11px]">$${totalCommission.toFixed(2)}</td>
+                <td class="px-4 py-3 text-right font-mono text-[11px]">$${totalSwap.toFixed(2)}</td>
+                <td class="px-4 py-3 text-right font-bold ${totalUnrealized >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${totalUnrealized >= 0 ? '+' : ''}$${totalUnrealized.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td class="px-4 py-3"></td>
+            `;
+            tbody.appendChild(summaryRow);
+        }
+
+        // CSV Downloader & Parser
+        function getPortfolioChecksum(data) {
+            if (!Array.isArray(data)) return '';
+            const count = data.length;
+            const lastRows = data.slice(Math.max(0, count - 3));
+            const content = lastRows.map(row => Object.values(row).join('|')).join('||');
+            return `${count}::${content}`;
+        }
+
+        function fetchAndParseCSV(forceUpdate = false) {
+            const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?output=csv&t=${Date.now()}`;
+
+            Papa.parse(url, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.errors.length > 0 && results.data.length === 0) {
+                        return;
+                    }
+
+                    const newChecksum = getPortfolioChecksum(results.data);
+                    if (!forceUpdate && portfolioDataChecksum && portfolioDataChecksum === newChecksum) {
+                        return;
+                    }
+                    portfolioDataChecksum = newChecksum;
+                    rawCSVData = results.data;
+                    autoDetectAndMapColumns(results.meta.fields);
+                    processPortfolio();
+                },
+                error: function(err) {
+                }
+            });
+        }
+
+        // Auto-detect columns prioritising close time
+        function autoDetectAndMapColumns(headers) {
+            if (!headers || headers.length === 0) return;
+
+            const timeCols = headers.filter(h => {
+                const l = h.toLowerCase();
+                return l.includes('time') || l.includes('date') || l.includes('timestamp') || l === 'open' || l === 'close';
+            });
+
+            // 1. Detect Close Date (Realization)
+            columnMapping.date = headers.find(h => {
+                const l = h.toLowerCase();
+                return (l.includes('close') && (l.includes('time') || l.includes('date'))) || (l === 'close');
+            });
+
+            // 2. Detect Open Date
+            columnMapping.openDate = headers.find(h => {
+                const l = h.toLowerCase();
+                return (l.includes('open') && (l.includes('time') || l.includes('date'))) || (l === 'open');
+            });
+
+            // 3. Heuristic for multiple ambiguous time headers (e.g. Column B and C both named "Time")
+            if (timeCols.length >= 2) {
+                if (!columnMapping.openDate) columnMapping.openDate = timeCols[0];
+                if (!columnMapping.date) columnMapping.date = timeCols[timeCols.length - 1];
+            }
+
+            // 4. Final safety fallbacks
+            if (!columnMapping.date) columnMapping.date = timeCols[0] || headers[0];
+            if (!columnMapping.openDate) columnMapping.openDate = columnMapping.date;
+
+            columnMapping.profit = headers.find(h => {
+                const lower = h.toLowerCase();
+                return lower.includes('profit') || lower.includes('p&l') || lower.includes('pnl') || lower.includes('gain') || lower.includes('net p');
+            }) || headers.find(h => h.toLowerCase().includes('amount')) || headers[1];
+
+            columnMapping.balance = headers.find(h => {
+                const lower = h.toLowerCase();
+                return lower.includes('balance') || lower.includes('equity');
+            }) || '';
+
+            columnMapping.type = headers.find(h => {
+                const lower = h.toLowerCase();
+                return lower.includes('type') || lower.includes('comment') || lower.includes('action');
+            }) || '';
+
+            // New detailed columns
+            columnMapping.symbol = headers.find(h => {
+                const l = h.toLowerCase();
+                return l.includes('symbol') || l.includes('item') || l.includes('pair') || l.includes('market');
+            }) || '';
+
+            columnMapping.volume = headers.find(h => {
+                const l = h.toLowerCase();
+                return l.includes('volume') || l.includes('size') || l.includes('lots');
+            }) || '';
+
+            const priceCols = headers.filter(h => h.toLowerCase().includes('price'));
+            if (priceCols.length >= 2) {
+                columnMapping.openPrice = priceCols[0];
+                columnMapping.closePrice = priceCols[priceCols.length - 1];
+            } else {
+                columnMapping.openPrice = priceCols[0] || '';
+                columnMapping.closePrice = priceCols[0] || '';
+            }
+
+            columnMapping.magic = headers.find(h => h.toLowerCase().includes('magic')) || '';
+        }
+
+        // Portfolio Engine with standard Myfxbook mathematics
+        function processPortfolio() {
+            if (rawCSVData.length === 0) return;
+
+            mappedTransactions = [];
+            const headers = Object.keys(rawCSVData[0]);
+
+            // Locate Swaps and Commission columns if present
+            const commissionHeader = headers.find(h => h.toLowerCase().includes('commission') || h.toLowerCase().includes('comm'));
+            const swapHeader = headers.find(h => h.toLowerCase().includes('swap'));
+            const taxesHeader = headers.find(h => h.toLowerCase().includes('tax'));
+            
+            // Clean and prepare raw rows
+            rawCSVData.forEach((row, idx) => {
+                let rawDateStr = (row[columnMapping.date] || '').trim();
+                let rawOpenDateStr = (row[columnMapping.openDate] || '').trim();
+                
+                // MT4/MT5 Balance operations often have empty Close Time. 
+                // If realization is missing, we treat the Open Time as the event time.
+                if (!rawDateStr && rawOpenDateStr) {
+                    rawDateStr = rawOpenDateStr;
+                }
+                
+                // If mapping fails, try hardcoded fallbacks
+                if (!rawOpenDateStr) {
+                    rawOpenDateStr = (row['Open Time'] || row['Open Date'] || row['Time'] || row['Date'] || rawDateStr).trim();
+                }
+
+                // Robust date parsing for platforms using dot notation or non-standard ISO formats
+                const parseRobust = (s) => {
+                    if (!s) return new Date(NaN);
+                    // Standardize separators for cross-browser compatibility
+                    let clean = String(s).replace(/\./g, '-');
+                    let obj = new Date(clean);
+                    if (isNaN(obj.getTime())) {
+                        // Fallback for Safari/Mobile which requires 'T' separator
+                        obj = new Date(clean.replace(' ', 'T'));
+                    }
+                    return obj;
+                };
+
+                let profitVal = parseFloat((row[columnMapping.profit] || '0').replace(/[^0-9.-]/g, ''));
+                let balanceVal = columnMapping.balance ? parseFloat((row[columnMapping.balance] || '0').replace(/[^0-9.-]/g, '')) : NaN;
+                let typeStr = columnMapping.type ? (row[columnMapping.type] || '') : '';
+
+                // Extract detailed trade data
+                let symbolVal = columnMapping.symbol ? (row[columnMapping.symbol] || '') : '';
+                let volumeVal = columnMapping.volume ? parseFloat((row[columnMapping.volume] || '0').replace(/[^0-9.]/g, '')) : 0;
+                let openPriceVal = columnMapping.openPrice ? parseFloat((row[columnMapping.openPrice] || '0').replace(/[^0-9.]/g, '')) : 0;
+                let closePriceVal = columnMapping.closePrice ? parseFloat((row[columnMapping.closePrice] || '0').replace(/[^0-9.]/g, '')) : 0;
+                let magicVal = columnMapping.magic ? (row[columnMapping.magic] || '') : '';
+
+                // MT4/MT5 Commissions and Swaps subtraction
+                let commissionVal = commissionHeader ? parseFloat((row[commissionHeader] || '0').replace(/[^0-9.-]/g, '')) : 0;
+                let swapVal = swapHeader ? parseFloat((row[swapHeader] || '0').replace(/[^0-9.-]/g, '')) : 0;
+                let taxesVal = taxesHeader ? parseFloat((row[taxesHeader] || '0').replace(/[^0-9.-]/g, '')) : 0;
+
+                if (isNaN(profitVal)) profitVal = 0;
+                if (isNaN(balanceVal)) balanceVal = NaN;
+                if (isNaN(commissionVal)) commissionVal = 0;
+                if (isNaN(swapVal)) swapVal = 0;
+                if (isNaN(taxesVal)) taxesVal = 0;
+
+                if (!rawDateStr && profitVal === 0 && isNaN(balanceVal)) return;
+
+                let dateObj = parseRobust(rawDateStr);
+                if (isNaN(dateObj.getTime())) {
+                    // Only skip if both the realization and open dates are unparseable
+                    return;
+                }
+                let openDateObj = parseRobust(rawOpenDateStr);
+
+                // Scan rows for keywords identifying funding events (Deposits & Withdrawals)
+                let isFunding = false;
+                let rowValuesString = Object.values(row).map(v => String(v).toLowerCase()).join(' | ');
+                
+                const fundingKeywords = [
+                    'deposit', 'withdraw', 'withdrawal', 'credit', 'transfer', 'funding', 
+                    'payout', 'pay-out', 'w/d', 'dep', 'with', 'bonus', 'rebate', 
+                    'adjustment', 'payout'
+                ];
+                
+                if (fundingKeywords.some(kw => rowValuesString.includes(kw))) {
+                    isFunding = true;
+                }
+
+                // Double check MT4 Comments / Actions directly
+                for (let key in row) {
+                    if (row.hasOwnProperty(key)) {
+                        let val = String(row[key]).trim().toLowerCase();
+                        if (val === 'balance' || val === 'deposit' || val === 'withdrawal' || val === 'with' || val === 'dep') {
+                            isFunding = true;
+                        }
+                    }
+                }
+
+                // Verification of Asset Symbols: Lack of symbol confirms funding event
+                let symbolHeader = headers.find(h => {
+                    const lower = h.toLowerCase();
+                    return lower.includes('symbol') || lower.includes('item') || lower.includes('pair') || lower.includes('market');
+                });
+                if (symbolHeader) {
+                    let symVal = String(row[symbolHeader]).trim().toLowerCase();
+                    if (!symVal || symVal === '0' || symVal === 'balance' || symVal === 'deposit' || symVal === 'withdrawal') {
+                        isFunding = true;
+                    }
+                }
+
+                let sizeHeader = headers.find(h => {
+                    const lower = h.toLowerCase();
+                    return lower.includes('size') || lower.includes('volume') || lower.includes('lots');
+                });
+                if (sizeHeader) {
+                    let sizeVal = parseFloat(String(row[sizeHeader]).replace(/[^0-9.]/g, ''));
+                    if (isNaN(sizeVal) || sizeVal === 0) {
+                        isFunding = true;
+                    }
+                }
+
+                mappedTransactions.push({
+                    index: idx, // CRITICAL FIX: Store original spreadsheet sequence index for stable sorting tie-breakers
+                    rawDate: rawDateStr,
+                    date: dateObj,
+                    rawOpenDate: rawOpenDateStr,
+                    openDate: openDateObj,
+                    symbol: symbolVal,
+                    volume: volumeVal,
+                    openPrice: openPriceVal,
+                    closePrice: closePriceVal,
+                    magic: magicVal,
+                    profit: profitVal,
+                    commission: commissionVal,
+                    swap: swapVal,
+                    taxes: taxesVal,
+                    providedBalance: balanceVal,
+                    type: typeStr,
+                    isFunding: isFunding,
+                    rawRow: row
+                });
+            });
+
+            // CRITICAL FIX: Sort strictly by Close Time (realization timestamp) and resolve identical ties via spreadsheet index
+            mappedTransactions.sort((a, b) => {
+                if (a.date.getTime() !== b.date.getTime()) {
+                    return a.date - b.date;
+                }
+                // If timestamps are identical, put deposits/withdrawals first
+                if (a.isFunding && !b.isFunding) return -1;
+                if (!a.isFunding && b.isFunding) return 1;
+                // If still tied, use original index to ensure absolute determinism across refreshes
+                return a.index - b.index;
+            });
+
+            let currentBalance = 0;
+            let totalDeposits = 0;
+            let totalWithdrawals = 0;
+            let currentCumulativeTWR = 1.0;
+            let currentCumulativeAdditive = 0.0;
+            let processedList = [];
+
+            mappedTransactions.forEach((tx, idx) => {
+                let isDepositOrWithdrawal = tx.isFunding;
+                let prevBalance = idx === 0 ? 0 : processedList[idx - 1].balance;
+
+                // Adjust Profit for trade net metrics (gross profit + commissions + swaps + taxes)
+                let netTradeProfit = tx.profit;
+                if (!isDepositOrWithdrawal) {
+                    netTradeProfit = tx.profit + tx.commission + tx.swap + tx.taxes;
+                }
+
+                if (idx === 0) {
+                    if (!isNaN(tx.providedBalance)) {
+                        currentBalance = tx.providedBalance;
+                    } else {
+                        currentBalance = tx.profit;
+                    }
+                    if (currentBalance >= 0) {
+                        totalDeposits += currentBalance;
+                    } else {
+                        totalWithdrawals += Math.abs(currentBalance);
+                    }
+                    isDepositOrWithdrawal = true; 
+                } else {
+                    if (!isNaN(tx.providedBalance)) {
+                        currentBalance = tx.providedBalance;
+                        
+                        let balanceDiff = currentBalance - prevBalance;
+                        let discrepancy = Math.abs(balanceDiff - netTradeProfit);
+                        
+                        // Flag any unexplained balance gap as funding / deposit / withdrawal
+                        if (isDepositOrWithdrawal || discrepancy > 0.01) {
+                            isDepositOrWithdrawal = true;
+                            let externalFlow = balanceDiff - netTradeProfit;
+                            if (externalFlow !== 0) {
+                                if (externalFlow > 0) {
+                                    totalDeposits += externalFlow;
+                                } else {
+                                    totalWithdrawals += Math.abs(externalFlow);
+                                }
+                            } else {
+                                if (tx.profit >= 0) {
+                                    totalDeposits += tx.profit;
+                                } else {
+                                    totalWithdrawals += Math.abs(tx.profit);
+                                }
+                            }
+                        }
+                    } else {
+                        currentBalance = prevBalance + netTradeProfit;
+                        if (isDepositOrWithdrawal) {
+                            if (tx.profit >= 0) {
+                                totalDeposits += tx.profit;
+                            } else {
+                                totalWithdrawals += Math.abs(tx.profit);
+                            }
+                        }
+                    }
+                }
+
+                // Balance before the trade was closed
+                let balanceBeforeTrade = currentBalance - netTradeProfit;
+                let tradeReturnPercent = 0;
+
+                // Perform calculations for BOTH systems side-by-side
+                if (!isDepositOrWithdrawal && balanceBeforeTrade > 0) {
+                    let r = netTradeProfit / balanceBeforeTrade;
+                    
+                    // Individual Trade yield percentage
+                    tradeReturnPercent = r * 100;
+                    
+                    // Geometric compounded TWR
+                    currentCumulativeTWR *= (1.0 + r);
+                    
+                    // Additive arithmetical sum
+                    currentCumulativeAdditive += (r * 100);
+                }
+
+                // Determine active display metric based on user configuration
+                let currentGainPercent = gainCalculationMethod === 'additive' 
+                    ? currentCumulativeAdditive 
+                    : (currentCumulativeTWR - 1.0) * 100;
+
+                processedList.push({
+                    date: tx.date,
+                    rawDate: tx.rawDate,
+                    openDate: tx.openDate,
+                    rawOpenDate: tx.rawOpenDate,
+                    symbol: tx.symbol,
+                    volume: tx.volume,
+                    openPrice: tx.openPrice,
+                    closePrice: tx.closePrice,
+                    magic: tx.magic,
+                    commission: tx.commission,
+                    swap: tx.swap,
+                    profit: tx.profit, // Display gross profit in Profit column
+                    netProfit: netTradeProfit, // Used for Gain calculations
+                    balance: currentBalance,
+                    gainPercent: currentGainPercent,
+                    tradeReturnPercent: tradeReturnPercent, // Stores trade performance yield
+                    isFunding: isDepositOrWithdrawal,
+                    type: tx.type
+                });
+            });
+
+            // Update user views
+            updateDashboardMetrics(processedList, totalDeposits, totalWithdrawals);
+            generateMonthlyReturns(processedList);
+            populateHistoryTable(processedList);
+            renderChart(processedList);
+        }
+
+        // Helper for Sharpe Ratio calculation
+        function getStandardDeviation(array) {
+            const n = array.length;
+            if (n < 2) return 0;
+            const mean = array.reduce((a, b) => a + b) / n;
+            return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / (n - 1));
+        }
+
+        // Render metrics to elements
+        function updateDashboardMetrics(list, totalDeposits, totalWithdrawals) {
+            if (list.length === 0) return;
+
+            const finalRow = list[list.length - 1];
+            const finalGain = finalRow.gainPercent;
+            const finalBalance = finalRow.balance;
+
+            // Total net profit from transactions
+            let totalNetProfit = list.reduce((sum, item) => item.isFunding ? sum : sum + item.profit, 0);
+
+            // Calculate Absolute Gain (Abs. Gain) = Net Profit / Total Deposits
+            let absGain = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
+
+            document.getElementById('metric-twr-gain').textContent = finalGain.toFixed(2) + '%';
+            document.getElementById('metric-abs-gain').textContent = absGain.toFixed(2) + '%';
+            document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('metric-balance').textContent = '$' + finalBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined, {maximumFractionDigits: 2});
+            let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
+            document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
+
+            let maxDrawdown = 0;
+            let currentDrawdown = 0;
+            let peakGain = -Infinity;
+            
+            list.forEach(item => {
+                if (item.gainPercent > peakGain) {
+                    peakGain = item.gainPercent;
+                }
+                currentDrawdown = peakGain - item.gainPercent;
+                if (currentDrawdown > maxDrawdown) {
+                    maxDrawdown = currentDrawdown;
+                }
+            });
+            document.getElementById('metric-max-drawdown').textContent = maxDrawdown.toFixed(2) + '%';
+            document.getElementById('metric-current-drawdown').textContent = currentDrawdown.toFixed(2) + '%';
+            if (!isNaN(finalBalance)) {
+                latestPortfolioBalance = finalBalance;
+            }
+
+            const trades = list.filter(item => !item.isFunding);
+            const totalTrades = trades.length;
+            const winningTrades = trades.filter(t => t.profit > 0);
+            const losingTrades = trades.filter(t => t.profit < 0);
+            
+            const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
+            
+            let totalWinAmt = winningTrades.reduce((s, t) => s + t.profit, 0);
+            let totalLossAmt = Math.abs(losingTrades.reduce((s, t) => s + t.profit, 0));
+            const profitFactor = totalLossAmt > 0 ? (totalWinAmt / totalLossAmt) : totalWinAmt > 0 ? Infinity : 0;
+
+            const avgWin = winningTrades.length > 0 ? totalWinAmt / winningTrades.length : 0;
+            const avgLoss = losingTrades.length > 0 ? totalLossAmt / losingTrades.length : 0;
+
+            let currentStreak = 0;
+            let maxStreak = 0;
+            trades.forEach(t => {
+                if (t.profit > 0) {
+                    currentStreak++;
+                    if (currentStreak > maxStreak) maxStreak = currentStreak;
+                } else if (t.profit < 0) {
+                    currentStreak = 0;
+                }
+            });
+
+            document.getElementById('stat-total-trades').textContent = totalTrades;
+            document.getElementById('stat-win-rate').textContent = winRate.toFixed(1) + '%';
+            document.getElementById('stat-profit-factor').textContent = profitFactor === Infinity ? '∞' : profitFactor.toFixed(2);
+            document.getElementById('stat-avg-win').textContent = '$' + avgWin.toFixed(2);
+            document.getElementById('stat-avg-loss').textContent = '$' + avgLoss.toFixed(2);
+            document.getElementById('stat-consec-wins').textContent = maxStreak;
+
+            // Sharpe Ratio Calculation
+            // 1. Map monthly cumulative gains and track the date range
+            const monthlyGainsMap = {};
+            let firstDate = null;
+            let lastDate = null;
+
+            list.forEach(item => {
+                const y = item.date.getFullYear();
+                const m = item.date.getMonth();
+                const key = `${y}-${m}`;
+                monthlyGainsMap[key] = item.gainPercent;
+                
+                if (!firstDate || item.date < firstDate) firstDate = item.date;
+                if (!lastDate || item.date > lastDate) lastDate = item.date;
+            });
+
+            if (firstDate && lastDate) {
+                const monthlyReturns = [];
+                let runningGain = 0;
+                let currY = firstDate.getFullYear();
+                let currM = firstDate.getMonth();
+                const stopY = lastDate.getFullYear();
+                const stopM = lastDate.getMonth();
+
+                // Build a continuous monthly sequence (handling months with no trades as 0% return)
+                while (currY < stopY || (currY === stopY && currM <= stopM)) {
+                    const key = `${currY}-${currM}`;
+                    const monthEndGain = monthlyGainsMap.hasOwnProperty(key) ? monthlyGainsMap[key] : runningGain;
+                    monthlyReturns.push(monthEndGain - runningGain);
+                    runningGain = monthEndGain;
+
+                    currM++;
+                    if (currM > 11) { currM = 0; currY++; }
+                }
+
+                const rfr = 4.48; // Annual Risk Free Rate (US 10Y)
+                if (monthlyReturns.length > 0) {
+                    const avgMonthly = monthlyReturns.reduce((a, b) => a + b, 0) / monthlyReturns.length;
+                    const monthlySD = getStandardDeviation(monthlyReturns);
+                    const annualReturn = avgMonthly * 12;
+                    const annualSD = monthlySD * Math.sqrt(12);
+                    const sharpeRatio = annualSD > 0 ? (annualReturn - rfr) / annualSD : 0;
+                    document.getElementById('stat-sharpe-ratio').textContent = sharpeRatio.toFixed(2);
+                }
+            }
+        }
+
+        // Render monthly summary list
+        function generateMonthlyReturns(list) {
+            const tbody = document.getElementById('monthly-heatmap-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            // 1. Reconstruct monthly returns grouped by year
+            const monthlyGainsMap = {};
+            let firstDate = null;
+            let lastDate = null;
+            list.forEach(item => {
+                const y = item.date.getFullYear();
+                const m = item.date.getMonth();
+                const key = `${y}-${m}`;
+                monthlyGainsMap[key] = item.gainPercent;
+                if (!firstDate || item.date < firstDate) firstDate = item.date;
+                if (!lastDate || item.date > lastDate) lastDate = item.date;
+            });
+            if (!firstDate || !lastDate) {
+                tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>';
+                return;
+            }
+            
+            const yearsMap = {};
+            let runningGain = 0;
+            let currY = firstDate.getFullYear();
+            let currM = firstDate.getMonth();
+            const stopY = lastDate.getFullYear();
+            const stopM = lastDate.getMonth();
+
+            while (currY < stopY || (currY === stopY && currM <= stopM)) {
+                const key = `${currY}-${currM}`;
+                const monthEndGain = monthlyGainsMap.hasOwnProperty(key) ? monthlyGainsMap[key] : runningGain;
+                if (!yearsMap[currY]) yearsMap[currY] = Array(12).fill(null);
+                yearsMap[currY][currM] = monthEndGain - runningGain;
+                runningGain = monthEndGain;
+                currM++;
+                if (currM > 11) { currM = 0; currY++; }
+            }
+
+            // 2. Render years in reverse order
+            const sortedYears = Object.keys(yearsMap).sort((a, b) => b - a);
+            sortedYears.forEach(year => {
+                const row = document.createElement('tr');
+                row.className = "border-b border-zinc-900/50 hover:bg-zinc-900/30 transition-colors";
+                let annualTotal = 0;
+
+                let html = `<td class="py-3 px-2 text-left font-black text-slate-400 border-r border-zinc-900 bg-black/20 text-[11px]">${year}</td>`;
+                
+                for (let m = 0; m < 12; m++) {
+                    const val = yearsMap[year][m];
+                    if (val === null) {
+                        html += `<td class="py-3 px-1 text-center text-zinc-800 border-r border-zinc-900 text-[10px]">—</td>`;
+                    } else {
+                        annualTotal += val;
+                        let cls = 'text-zinc-500';
+                        if (val > 0.001) {
+                            if (val > 5) cls = 'h-pos-4';
+                            else if (val > 2) cls = 'h-pos-3';
+                            else if (val > 0.5) cls = 'h-pos-2';
+                            else cls = 'h-pos-1';
+                        } else if (val < -0.001) {
+                            const a = Math.abs(val);
+                            if (a > 5) cls = 'h-neg-4';
+                            else if (a > 2) cls = 'h-neg-3';
+                            else if (a > 0.5) cls = 'h-neg-2';
+                            else cls = 'h-neg-1';
+                        }
+                        html += `<td class="py-3 px-1 text-center border-r border-zinc-900 font-bold text-[10px] ${cls}">${(val > 0 ? '+' : '')}${val.toFixed(2)}</td>`;
+                    }
+                }
+
+                // Annual Result column
+                let annCls = 'text-slate-400';
+                if (annualTotal > 0.01) annCls = 'text-emerald-400';
+                else if (annualTotal < -0.01) annCls = 'text-rose-400';
+                
+                html += `<td class="py-3 px-2 text-right font-black text-[11px] ${annCls}">${(annualTotal > 0 ? '+' : '')}${annualTotal.toFixed(2)}%</td>`;
+                
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Fill table rows strictly by close dates
+        function populateHistoryTable(list) {
+            const tbody = document.getElementById('transaction-rows');
+            const countEl = document.getElementById('history-count');
+            tbody.innerHTML = '';
+
+            countEl.textContent = `${list.length} Entries`;
+            const displayList = [...list].reverse();
+
+            if (displayList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">Awaiting data records...</td></tr>`;
+                return;
+            }
+
+            displayList.forEach(item => {
+                const isFunding = item.isFunding;
+                const isProfitPositive = item.profit >= 0;
+
+                // Calculate Holding Time 00D:00H:00M
+                let holdingTime = "—";
+                if (!isFunding && item.openDate && item.date && !isNaN(item.openDate.getTime()) && !isNaN(item.date.getTime())) {
+                    let diffMs = Math.abs(item.date - item.openDate);
+                    let days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    let hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    let minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    holdingTime = `${String(days).padStart(2, '0')}D:${String(hours).padStart(2, '0')}H:${String(minutes).padStart(2, '0')}M`;
+                }
+
+                let typeBadge = '';
+                if (isFunding) {
+                    typeBadge = item.profit >= 0 
+                        ? `<span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Deposit</span>`
+                        : `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Withdrawals</span>`;
+                } else {
+                    const tType = (item.type || '').toLowerCase();
+                    if (tType.includes('buy') || tType.includes('long')) {
+                        typeBadge = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Long</span>`;
+                    } else if (tType.includes('sell') || tType.includes('short')) {
+                        typeBadge = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Short</span>`;
+                    } else {
+                        typeBadge = `<span class="bg-zinc-800 text-slate-300 border border-zinc-700 px-1.5 py-0.5 rounded text-[10px] font-bold">Trade</span>`;
+                    }
+                }
+
+                // Show individual trade's performance yield if it is not a funding action
+                let tradeGainText = '-';
+                if (!isFunding) {
+                    const isTradePositive = item.profit >= 0;
+                    tradeGainText = `${isTradePositive ? '+' : ''}${item.tradeReturnPercent.toFixed(2)}%`;
+                }
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-zinc-900/60 transition-colors";
+                row.innerHTML = `
+                    <td class="px-4 py-2 text-slate-400 font-mono text-[11px]">${item.rawOpenDate || item.rawDate}</td>
+                    <td class="px-4 py-2 text-slate-400 font-mono text-[11px]">${item.rawDate}</td>
+                    <td class="px-4 py-2 text-slate-200 font-bold">${item.symbol || '—'}</td>
+                    <td class="px-4 py-2">${typeBadge}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.volume ? item.volume.toFixed(2) : '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.openPrice ? item.openPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 5}) : '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.closePrice ? item.closePrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 5}) : '—'}</td>
+                    <td class="px-4 py-2 text-right font-bold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </td>
+                    <td class="px-4 py-2 text-right font-bold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${tradeGainText}
+                    </td>
+                    <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px]">${item.commission ? '$' + item.commission.toFixed(2) : '—'}</td>
+                    <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px]">${item.swap ? '$' + item.swap.toFixed(2) : '—'}</td>
+                    <td class="px-4 py-2 text-right text-zinc-500 font-mono text-[11px]">${item.magic || '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-zinc-300 text-[11px]">
+                        ${holdingTime}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Toggle Active Display Mode
+        function changeChartType(type) {
+            activeChartType = type;
+            const btnGain = document.getElementById('btn-chart-gain');
+            const btnBal = document.getElementById('btn-chart-balance');
+
+            if (type === 'gain') {
+                btnGain.className = "px-3 py-1 text-xs rounded font-medium transition-all bg-emerald-600 text-white shadow";
+                btnBal.className = "px-3 py-1 text-xs rounded font-medium transition-all text-slate-400 hover:text-slate-200";
+            } else {
+                btnBal.className = "px-3 py-1 text-xs rounded font-medium transition-all bg-emerald-600 text-white shadow";
+                btnGain.className = "px-3 py-1 text-xs rounded font-medium transition-all text-slate-400 hover:text-slate-200";
+            }
+
+            if (rawCSVData.length > 0) {
+                processPortfolio();
+            }
+        }
+
+        // Create Chart.js Curve
+        function renderChart(list) {
+            const ctx = document.getElementById('equityChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const dates = list.map(item => item.rawDate);
+            const datasetValues = activeChartType === 'gain' 
+                ? list.map(item => parseFloat(item.gainPercent.toFixed(2)))
+                : list.map(item => parseFloat(item.balance.toFixed(2)));
+
+            const labelString = activeChartType === 'gain' ? 'TWR Return Gain %' : 'Account Balance $';
+            const accentColor = activeChartType === 'gain' ? '#10b981' : '#3b82f6';
+            const gradientBg = ctx.createLinearGradient(0, 0, 0, 320);
+            
+            if (activeChartType === 'gain') {
+                gradientBg.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+                gradientBg.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            } else {
+                gradientBg.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
+                gradientBg.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: labelString,
+                        data: datasetValues,
+                        borderColor: accentColor,
+                        borderWidth: 2.5,
+                        backgroundColor: gradientBg,
+                        fill: true,
+                        tension: 0.1,
+                        pointRadius: list.length < 50 ? 3 : 0,
+                        pointBackgroundColor: accentColor,
+                        pointHoverRadius: 6,
+                        pointHitRadius: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#09090b',
+                            titleColor: '#71717a',
+                            bodyColor: '#f8fafc',
+                            borderColor: '#27272a',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return activeChartType === 'gain' 
+                                        ? `Gain: ${context.raw}%`
+                                        : `Balance: $${context.raw.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: '#18181b',
+                                drawTicks: false
+                            },
+                            ticks: {
+                                color: '#71717a',
+                                font: {
+                                    size: 10
+                                },
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: '#18181b',
+                                drawTicks: false
+                            },
+                            ticks: {
+                                color: '#71717a',
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value) {
+                                    return activeChartType === 'gain' ? value + '%' : '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
