@@ -218,9 +218,17 @@
                         <h2 class="text-sm font-bold text-slate-200">Equity Curve & Portfolio Gain</h2>
                         <p class="text-xs text-slate-500">Track Time-Weighted Gain vs. Account Balance</p>
                     </div>
-                    <div class="flex gap-2 bg-black p-1 rounded-lg border border-zinc-800">
-                        <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
-                        <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
+                    <div class="flex gap-3">
+                        <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
+                            <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
+                            <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
+                        </div>
+                        <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
+                            <button onclick="changePeriodMode('trade')" id="btn-period-trade" class="px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white">Trade</button>
+                            <button onclick="changePeriodMode('daily')" id="btn-period-daily" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Daily</button>
+                            <button onclick="changePeriodMode('monthly')" id="btn-period-monthly" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Monthly</button>
+                            <button onclick="changePeriodMode('yearly')" id="btn-period-yearly" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Yearly</button>
+                        </div>
                     </div>
                 </div>
                 <div class="relative w-full h-[350px]">
@@ -383,9 +391,12 @@
         let mappedTransactions = [];
         let chartInstance = null;
         let activeChartType = 'gain'; // 'gain' or 'balance'
+        let activePeriodMode = 'trade'; // 'trade', 'daily', 'monthly', 'yearly'
         let gainCalculationMethod = 'compounded'; // Defaults to compounded
         let portfolioDataChecksum = '';
         let latestPortfolioBalance = NaN;
+        let totalUnrealizedPL = 0; // Total unrealized P/L from open trades
+        let isFirstChartRender = true; // Track first render for animation
         let columnMapping = {
             date: '',
             profit: '',
@@ -756,9 +767,17 @@
                 trades.push({ time, symbol, type, volume, openPrice, takeProfit, stopLoss, currentPrice, commission, swap, profit: profitValue, openDateObj, holdingMs });
             });
 
+            // Store globally for use in metrics calculations
+            totalUnrealizedPL = totalUnrealized;
+
             countEl.textContent = `${trades.length} Active`;
             metricEl.textContent = (totalUnrealized >= 0 ? '$' : '-$') + Math.abs(totalUnrealized).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             metricEl.className = `text-2xl sm:text-3xl font-black mt-1 ${totalUnrealized >= 0 ? 'text-amber-400' : 'text-rose-400'}`;
+
+            // Re-render metrics and chart with updated unrealized P/L
+            if (mappedTransactions.length > 0) {
+                processPortfolio();
+            }
 
             tbody.innerHTML = '';
             if (trades.length === 0) {
@@ -1222,38 +1241,51 @@
             const finalRow = list[list.length - 1];
             const finalGain = finalRow.gainPercent;
             const finalBalance = finalRow.balance;
+            
+            // Calculate the additional gain from unrealized P/L
+            const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
+            const unrealizedGainPercent = (totalUnrealizedPL / initialDeposit) * 100;
+            const finalGainWithUnrealized = finalGain + unrealizedGainPercent;
+            const finalBalanceWithUnrealized = finalBalance + totalUnrealizedPL;
 
-            // Total net profit from transactions
-            let totalNetProfit = list.reduce((sum, item) => item.isFunding ? sum : sum + item.profit, 0);
+            // Total net profit from transactions + unrealized
+            let totalNetProfit = list.reduce((sum, item) => item.isFunding ? sum : sum + item.profit, 0) + totalUnrealizedPL;
 
             // Calculate Absolute Gain (Abs. Gain) = Net Profit / Total Deposits
             let absGain = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
 
-            document.getElementById('metric-twr-gain').textContent = finalGain.toFixed(2) + '%';
+            document.getElementById('metric-twr-gain').textContent = finalGainWithUnrealized.toFixed(2) + '%';
             document.getElementById('metric-abs-gain').textContent = absGain.toFixed(2) + '%';
             document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('metric-balance').textContent = '$' + finalBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined, {maximumFractionDigits: 2});
             let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
             document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
 
+            // Calculate drawdown including unrealized P/L in all data points
             let maxDrawdown = 0;
             let currentDrawdown = 0;
             let peakGain = -Infinity;
             
             list.forEach(item => {
-                if (item.gainPercent > peakGain) {
-                    peakGain = item.gainPercent;
+                const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
+                if (gainWithUnrealized > peakGain) {
+                    peakGain = gainWithUnrealized;
                 }
-                currentDrawdown = peakGain - item.gainPercent;
-                if (currentDrawdown > maxDrawdown) {
-                    maxDrawdown = currentDrawdown;
+                const dd = peakGain - gainWithUnrealized;
+                if (dd > maxDrawdown) {
+                    maxDrawdown = dd;
                 }
             });
+            
+            // Current drawdown
+            const currentGainWithUnrealized = finalGainWithUnrealized;
+            currentDrawdown = peakGain - currentGainWithUnrealized;
+            
             document.getElementById('metric-max-drawdown').textContent = maxDrawdown.toFixed(2) + '%';
             document.getElementById('metric-current-drawdown').textContent = currentDrawdown.toFixed(2) + '%';
-            if (!isNaN(finalBalance)) {
-                latestPortfolioBalance = finalBalance;
+            if (!isNaN(finalBalanceWithUnrealized)) {
+                latestPortfolioBalance = finalBalanceWithUnrealized;
             }
 
             const trades = list.filter(item => !item.isFunding);
@@ -1516,6 +1548,25 @@
             }
         }
 
+        // Toggle Period Mode
+        function changePeriodMode(mode) {
+            activePeriodMode = mode;
+            const buttons = ['trade', 'daily', 'monthly', 'yearly'];
+            
+            buttons.forEach(btn => {
+                const el = document.getElementById(`btn-period-${btn}`);
+                if (btn === mode) {
+                    el.className = "px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white";
+                } else {
+                    el.className = "px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200";
+                }
+            });
+
+            if (rawCSVData.length > 0) {
+                processPortfolio();
+            }
+        }
+
         // Create Chart.js Curve
         function renderChart(list) {
             const ctx = document.getElementById('equityChart').getContext('2d');
@@ -1524,10 +1575,76 @@
                 chartInstance.destroy();
             }
 
-            const dates = list.map(item => item.rawDate);
+            // Get initial deposit for unrealized gain calculation
+            const totalDeposits = list.reduce((sum, item) => item.isFunding && item.profit > 0 ? sum + item.profit : sum, 0);
+            const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
+            const unrealizedGainPercent = (totalUnrealizedPL / initialDeposit) * 100;
+
+            // Aggregate data based on period mode
+            let aggregatedData = [];
+            let labels = [];
+
+            if (activePeriodMode === 'trade') {
+                labels = list.map((item, i) => `#${i + 1}`);
+                aggregatedData = list.map(item => ({
+                    label: item.rawDate,
+                    balance: item.balance + totalUnrealizedPL,
+                    gainPercent: item.gainPercent + unrealizedGainPercent
+                }));
+            } else if (activePeriodMode === 'daily') {
+                const dailyMap = {};
+                list.forEach(item => {
+                    const key = item.date.toISOString().split('T')[0];
+                    const balanceWithUnrealized = item.balance + totalUnrealizedPL;
+                    const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
+                    if (!dailyMap[key]) {
+                        dailyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
+                    } else {
+                        dailyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
+                    }
+                });
+                Object.keys(dailyMap).sort().forEach(date => {
+                    labels.push(date);
+                    aggregatedData.push(dailyMap[date]);
+                });
+            } else if (activePeriodMode === 'monthly') {
+                const monthlyMap = {};
+                list.forEach(item => {
+                    const key = `${item.date.getFullYear()}-${(item.date.getMonth() + 1).toString().padStart(2, '0')}`;
+                    const balanceWithUnrealized = item.balance + totalUnrealizedPL;
+                    const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
+                    if (!monthlyMap[key]) {
+                        monthlyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
+                    } else {
+                        monthlyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
+                    }
+                });
+                Object.keys(monthlyMap).sort().forEach(key => {
+                    const [y, m] = key.split('-');
+                    labels.push(`${new Date(y, m-1).toLocaleString('default', { month: 'short' })} ${y}`);
+                    aggregatedData.push(monthlyMap[key]);
+                });
+            } else if (activePeriodMode === 'yearly') {
+                const yearlyMap = {};
+                list.forEach(item => {
+                    const key = item.date.getFullYear();
+                    const balanceWithUnrealized = item.balance + totalUnrealizedPL;
+                    const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
+                    if (!yearlyMap[key]) {
+                        yearlyMap[key] = { label: key.toString(), balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
+                    } else {
+                        yearlyMap[key] = { label: key.toString(), balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
+                    }
+                });
+                Object.keys(yearlyMap).sort().forEach(year => {
+                    labels.push(year);
+                    aggregatedData.push(yearlyMap[year]);
+                });
+            }
+
             const datasetValues = activeChartType === 'gain' 
-                ? list.map(item => parseFloat(item.gainPercent.toFixed(2)))
-                : list.map(item => parseFloat(item.balance.toFixed(2)));
+                ? aggregatedData.map(item => parseFloat(item.gainPercent.toFixed(2)))
+                : aggregatedData.map(item => parseFloat(item.balance.toFixed(2)));
 
             const labelString = activeChartType === 'gain' ? 'TWR Return Gain %' : 'Account Balance $';
             const accentColor = activeChartType === 'gain' ? '#10b981' : '#3b82f6';
@@ -1544,7 +1661,7 @@
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: dates,
+                    labels: labels,
                     datasets: [{
                         label: labelString,
                         data: datasetValues,
@@ -1553,7 +1670,7 @@
                         backgroundColor: gradientBg,
                         fill: true,
                         tension: 0.1,
-                        pointRadius: list.length < 50 ? 3 : 0,
+                        pointRadius: aggregatedData.length < 50 ? 3 : 0,
                         pointBackgroundColor: accentColor,
                         pointHoverRadius: 6,
                         pointHitRadius: 10
@@ -1562,6 +1679,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: isFirstChartRender ? {
+                        duration: 800,
+                        easing: 'easeOutQuart'
+                    } : false,
                     plugins: {
                         legend: {
                             display: false
@@ -1615,6 +1736,9 @@
                     }
                 }
             });
+            
+            // Disable animation after first render
+            isFirstChartRender = false;
         }
     </script>
 </body>
