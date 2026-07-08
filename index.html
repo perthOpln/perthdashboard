@@ -67,6 +67,21 @@
             position: fixed; pointer-events:none; background: rgba(9,9,11,0.97); border:1px solid #27272a;
             padding:12px 14px; border-radius:8px; z-index:10000; display:none; box-shadow: 0 20px 40px rgba(0,0,0,.5);
         }
+
+        /* Live pulsing dot on the tail of the equity chart */
+        #equity-live-dot { position:absolute; width:12px; height:12px; pointer-events:none; z-index:20; display:none; }
+        #equity-live-dot-ping { position:absolute; inset:0; border-radius:9999px; opacity:0.75; animation: livePulse 1.4s cubic-bezier(0,0,0.2,1) infinite; }
+        #equity-live-dot-core { position:absolute; inset:0; border-radius:9999px; box-shadow: 0 0 6px rgba(0,0,0,0.4); }
+        @keyframes livePulse {
+            0% { transform: scale(1); opacity: 0.75; }
+            75%, 100% { transform: scale(2.4); opacity: 0; }
+        }
+
+        .rfr-input-wrap input {
+            background: #000; border:1px solid #27272a; border-radius:6px; color:#f4f4f5; font-size:12px;
+            padding: 4px 8px; width: 70px; text-align:right; font-variant-numeric: tabular-nums;
+        }
+        .rfr-input-wrap input:focus { outline:none; border-color:#52525b; }
     </style>
 </head>
 
@@ -82,9 +97,15 @@
                     <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
                     <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
                 </div>
-                <button id="exportBtn" class="px-4 py-2 rounded-full bg-white text-black text-[10px] uppercase tracking-[0.25em] font-black hover:bg-zinc-200 transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-file-arrow-down"></i> Export Audit PDF
-                </button>
+                <div class="flex items-center gap-3 flex-wrap justify-end">
+                    <div class="rfr-input-wrap flex items-center gap-2 bg-zinc-950/70 border border-zinc-800 rounded-full px-3 py-1.5">
+                        <label for="rfr-input" class="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold whitespace-nowrap">RFR (US10Y) %</label>
+                        <input type="number" id="rfr-input" step="0.01" min="0" max="20" />
+                    </div>
+                    <button id="exportBtn" class="px-4 py-2 rounded-full bg-white text-black text-[10px] uppercase tracking-[0.25em] font-black hover:bg-zinc-200 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-file-arrow-down"></i> Export Audit PDF
+                    </button>
+                </div>
             </div>
             <div class="flex flex-row flex-nowrap justify-center gap-1 mt-1 overflow-x-auto pb-1">
                 <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
@@ -121,12 +142,6 @@
                 <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> <span id="gain-method-subtext">Geometric compounding</span></p>
             </div>
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-teal-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                <p class="text-xs text-slate-400 font-bold">Abs. Gain</p>
-                <h3 id="metric-abs-gain" class="text-2xl sm:text-3xl font-black text-teal-400 mt-1">--%</h3>
-                <p class="text-[10px] text-slate-500 mt-1">Profit / Total Deposits</p>
-            </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
                 <div class="absolute top-0 right-0 p-3 text-blue-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-money-bill-trend-up"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Net Profit</p>
                 <h3 id="metric-net-profit" class="text-2xl sm:text-3xl font-black text-slate-100 mt-1">$--</h3>
@@ -150,7 +165,7 @@
                 <h3 id="metric-current-drawdown" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">--%</h3>
                 <p class="text-[10px] text-slate-500 mt-1">From all-time peak</p>
             </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-2 md:col-span-1">
+            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
                 <div class="absolute top-0 right-0 p-3 text-amber-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-clock-rotate-left"></i></div>
                 <div class="flex items-center gap-2">
                     <p class="text-xs text-slate-400 font-bold">Unrealized P/L</p>
@@ -165,8 +180,8 @@
         </div>
 
         <!-- Main Chart & Sidebar Analytics -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl flex flex-col justify-between">
+        <div class="grid grid-cols-1 gap-6">
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
                     <div>
                         <h2 class="text-sm font-bold text-slate-200">Equity Curve & Portfolio Gain</h2>
@@ -185,23 +200,16 @@
                         </div>
                     </div>
                 </div>
-                <div class="relative w-full h-[300px]"><canvas id="equityChart"></canvas></div>
+                <div class="relative w-full h-[300px]">
+                    <canvas id="equityChart"></canvas>
+                    <div id="equity-live-dot">
+                        <span id="equity-live-dot-ping"></span>
+                        <span id="equity-live-dot-core"></span>
+                    </div>
+                </div>
                 <div class="relative w-full h-[100px] mt-4">
                     <p class="text-[9px] font-black uppercase text-zinc-700 tracking-[0.3em] mb-1">Underwater Return Profile (%)</p>
                     <canvas id="drawdownChart"></canvas>
-                </div>
-            </div>
-
-            <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl space-y-4 font-sans">
-                <h2 class="text-sm font-bold text-slate-200 border-b border-zinc-800 pb-2">Key Trading Performance</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Trades</p><p id="stat-total-trades" class="text-lg font-bold text-slate-200 mt-0.5">--</p></div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Win Rate</p><p id="stat-win-rate" class="text-lg font-bold text-emerald-400 mt-0.5">--%</p></div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Profit Factor</p><p id="stat-profit-factor" class="text-lg font-bold text-slate-200 mt-0.5">--</p></div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Win</p><p id="stat-avg-win" class="text-lg font-bold text-emerald-400 mt-0.5">$--</p></div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Loss</p><p id="stat-avg-loss" class="text-lg font-bold text-rose-400 mt-0.5">$--</p></div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Max Consecutive Wins</p><p id="stat-consec-wins" class="text-lg font-bold text-slate-200 mt-0.5">--</p></div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Ann. Sharpe Ratio</p><p id="stat-sharpe-ratio" class="text-lg font-bold text-indigo-400 mt-0.5">0.00</p></div>
                 </div>
             </div>
         </div>
@@ -232,7 +240,23 @@
                 <div class="metric-card"><p class="metric-label">Risk/Reward Profile</p><p id="stat-rr" class="metric-value">-</p></div>
                 <div class="metric-card"><p class="metric-label">Alpha (vs Benchmark)</p><p id="stat-alpha" class="metric-value">-</p></div>
             </div>
-            <p class="text-[9px] text-zinc-600 mt-4 uppercase tracking-widest">Alpha assumes a static annual risk-free rate of <span id="rfr-display"></span>% and benchmark return of <span id="bmk-display"></span>% (no live macro feed connected)</p>
+            <div class="flex items-center gap-6 mt-5 flex-wrap">
+                <div class="flex items-center gap-2">
+                    <label class="text-[9px] text-zinc-600 uppercase tracking-widest font-bold whitespace-nowrap">US10Y / RFR %</label>
+                    <input id="rfr-input" type="number" step="0.01" min="0" max="20"
+                        class="w-20 bg-zinc-900 border border-zinc-700 text-amber-300 text-xs font-bold rounded-md px-2 py-1 focus:outline-none focus:border-amber-400 text-center"
+                        onchange="updateRFR(this.value)" />
+                    <span class="text-[9px] text-zinc-600 uppercase tracking-widest">annual</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-[9px] text-zinc-600 uppercase tracking-widest font-bold whitespace-nowrap">Benchmark Return %</label>
+                    <input id="bmk-input" type="number" step="0.1" min="-50" max="100"
+                        class="w-20 bg-zinc-900 border border-zinc-700 text-amber-300 text-xs font-bold rounded-md px-2 py-1 focus:outline-none focus:border-amber-400 text-center"
+                        onchange="updateBenchmark(this.value)" />
+                    <span class="text-[9px] text-zinc-600 uppercase tracking-widest">annual</span>
+                </div>
+                <p class="text-[9px] text-zinc-700 uppercase tracking-widest">Edit inputs then press Enter / Tab to recompute metrics</p>
+            </div>
         </div>
 
         <!-- Holding Period Distribution -->
@@ -467,13 +491,12 @@
         // ============================================================
         // GLOBAL CONFIGURATION
         // ============================================================
-        const SPREADSHEET_ID = "13njb8MTv1zgHP-HZ881MkXyCPOTrNGqyT7zP6-YHNH0";
-        const LEGACY_SPREADSHEET_ID = "2PACX-1vQQj8EzNYOAPc70wbmz--2hiq1tfeH76njnadmTVs-3UZIxH7JDcJuXzhDQeRw4Ee3hEtFbyYJP2yNg";
+        const SPREADSHEET_ID = "2PACX-1vQQj8EzNYOAPc70wbmz--2hiq1tfeH76njnadmTVs-3UZIxH7JDcJuXzhDQeRw4Ee3hEtFbyYJP2yNg";
         const OPEN_TRADES_GID = "1116835953";
 
-        // Static macro assumptions used only for Sharpe/Sortino/Alpha (no live feed available)
-        const ANNUAL_RISK_FREE_RATE = 4.48;   // %
-        const ANNUAL_BENCHMARK_RETURN = 10.0; // %
+        // Macro assumptions — mutable via UI controls
+        let ANNUAL_RISK_FREE_RATE = 4.48;   // %  (US10Y proxy, user-adjustable)
+        let ANNUAL_BENCHMARK_RETURN = 10.0; // %  (S&P500 proxy, user-adjustable)
         const REBATE_PER_LOT = 7; // $ per lot
 
         // ============================================================
@@ -492,14 +515,13 @@
         let latestPortfolioBalance = NaN;
         let totalUnrealizedPL = 0;
         let isFirstChartRender = true;
-        let isFetchingOpenTrades = false;
-        let isFetchingPortfolio = false;
 
         let columnMapping = { date:'', profit:'', balance:'', type:'', openDate:'', symbol:'', volume:'', openPrice:'', closePrice:'', magic:'' };
         let openTradeColumnMapping = { time:'', status:'', symbol:'', type:'', volume:'', openPrice:'', currentPrice:'', takeProfit:'', stopLoss:'', commission:'', swap:'', profit:'' };
 
-        document.getElementById('rfr-display').textContent = ANNUAL_RISK_FREE_RATE.toFixed(2);
-        document.getElementById('bmk-display').textContent = ANNUAL_BENCHMARK_RETURN.toFixed(2);
+        // Sync inputs to initial values
+        document.getElementById('rfr-input').value = ANNUAL_RISK_FREE_RATE.toFixed(2);
+        document.getElementById('bmk-input').value = ANNUAL_BENCHMARK_RETURN.toFixed(2);
 
         window.onload = function () {
             updateWorldClocks();
@@ -513,72 +535,22 @@
         // ============================================================
         // OPEN TRADES (LIVE, 1s POLL) — light-weight updates only
         // ============================================================
-        function buildSheetCsvUrls(sheetId, gid = '') {
-            const timestamp = Date.now();
-            const params = new URLSearchParams();
-            if (gid) params.set('gid', gid);
-            params.set('single', 'true');
-            params.set('output', 'csv');
-            params.set('t', timestamp.toString());
-            const pubUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?${params.toString()}`;
-            const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}&t=${timestamp}`;
-            return [pubUrl, exportUrl];
-        }
-
-        function fetchSheetCsv(sheetId, gid, onSuccess, onError, fallbackSheetId = null) {
-            const urls = buildSheetCsvUrls(sheetId, gid);
-            if (fallbackSheetId) urls.push(...buildSheetCsvUrls(fallbackSheetId, gid));
-
-            let attemptIndex = 0;
-            const attempt = () => {
-                if (attemptIndex >= urls.length) {
-                    onError(new Error('No sheet URLs remained to try.'));
-                    return;
-                }
-                Papa.parse(urls[attemptIndex], {
-                    download: true,
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function (results) {
-                        const hasHtmlError = isHTMLResponse(results.data || []);
-                        if (hasHtmlError && attemptIndex < urls.length - 1) {
-                            attemptIndex += 1;
-                            attempt();
-                            return;
-                        }
-                        onSuccess(results);
-                    },
-                    error: function (err) {
-                        if (attemptIndex < urls.length - 1) {
-                            attemptIndex += 1;
-                            attempt();
-                            return;
-                        }
-                        onError(err);
-                    }
-                });
-            };
-            attempt();
-        }
-
         function fetchOpenTrades() {
-            if (isFetchingOpenTrades) return;
-            isFetchingOpenTrades = true;
-            fetchSheetCsv(SPREADSHEET_ID, OPEN_TRADES_GID, function (results) {
-                isFetchingOpenTrades = false;
-                if (!results || !Array.isArray(results.data) || results.data.length === 0) {
-                    showOpenTradesError('Live feed unreachable or no data returned from Sheet 2.'); return;
-                }
-                if (isHTMLResponse(results.data)) {
-                    showOpenTradesError('Live feed returned an HTML error page. Verify Sheet 2 is published and accessible.'); return;
-                }
-                autoDetectOpenTradeColumns(results.meta.fields || [], results.data[0] || {});
-                processOpenTrades(results.data);
-            }, function (err) {
-                isFetchingOpenTrades = false;
-                console.error('Live feed connection error', err);
-                showOpenTradesError('Live feed fetch failed. See console for details.');
-            }, LEGACY_SPREADSHEET_ID);
+            const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?gid=${OPEN_TRADES_GID}&single=true&output=csv&t=${Date.now()}`;
+            Papa.parse(url, {
+                download: true, header: true, skipEmptyLines: true,
+                complete: function (results) {
+                    if (!results || !Array.isArray(results.data) || results.data.length === 0) {
+                        showOpenTradesError('Live feed unreachable or no data returned from Sheet 2.'); return;
+                    }
+                    if (isHTMLResponse(results.data)) {
+                        showOpenTradesError('Live feed returned an HTML error page. Verify Sheet 2 is published and accessible.'); return;
+                    }
+                    autoDetectOpenTradeColumns(results.meta.fields || [], results.data[0] || {});
+                    processOpenTrades(results.data);
+                },
+                error: function (err) { console.error('Live feed connection error', err); showOpenTradesError('Live feed fetch failed. See console for details.'); }
+            });
         }
 
         function showOpenTradesError(message) {
@@ -811,9 +783,10 @@
             countEl.textContent = `${trades.length} Active`;
             metricEl.className = `text-2xl sm:text-3xl font-black mt-1 ${totalUnrealized >= 0 ? 'text-amber-400' : 'text-rose-400'}`;
 
-            // Light-weight recompute of the top cards only (cheap, safe for 1s cadence)
+            // Refresh top cards AND equity chart on every live tick so unrealized moves the line
             if (processedList.length > 0) {
                 updateDashboardMetrics(processedList, cachedTotalDeposits, cachedTotalWithdrawals);
+                renderChart(processedList);  // lightweight — just redraws the existing data+unrealized tail
             }
 
             tbody.innerHTML = '';
@@ -881,21 +854,20 @@
         }
 
         function fetchAndParseCSV(forceUpdate = false) {
-            if (isFetchingPortfolio) return;
-            isFetchingPortfolio = true;
-            fetchSheetCsv(SPREADSHEET_ID, '', function (results) {
-                isFetchingPortfolio = false;
-                if (results.errors.length > 0 && results.data.length === 0) return;
-                const newChecksum = getPortfolioChecksum(results.data);
-                if (!forceUpdate && portfolioDataChecksum && portfolioDataChecksum === newChecksum) return;
-                portfolioDataChecksum = newChecksum;
-                rawCSVData = results.data;
-                autoDetectAndMapColumns(results.meta.fields);
-                processPortfolio();
-            }, function (err) {
-                isFetchingPortfolio = false;
-                console.warn('Portfolio feed connection error', err);
-            }, LEGACY_SPREADSHEET_ID);
+            const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?output=csv&t=${Date.now()}`;
+            Papa.parse(url, {
+                download: true, header: true, skipEmptyLines: true,
+                complete: function (results) {
+                    if (results.errors.length > 0 && results.data.length === 0) return;
+                    const newChecksum = getPortfolioChecksum(results.data);
+                    if (!forceUpdate && portfolioDataChecksum && portfolioDataChecksum === newChecksum) return;
+                    portfolioDataChecksum = newChecksum;
+                    rawCSVData = results.data;
+                    autoDetectAndMapColumns(results.meta.fields);
+                    processPortfolio();
+                },
+                error: function (err) {}
+            });
         }
 
         function autoDetectAndMapColumns(headers) {
@@ -1089,22 +1061,20 @@
             const finalBalanceWithUnrealized = finalBalance + totalUnrealizedPL;
 
             let totalNetProfit = list.reduce((sum, item) => item.isFunding ? sum : sum + item.profit, 0) + totalUnrealizedPL;
-            let absGain = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
 
             document.getElementById('metric-twr-gain').textContent = finalGainWithUnrealized.toFixed(2) + '%';
-            document.getElementById('metric-abs-gain').textContent = absGain.toFixed(2) + '%';
             document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
             document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
             document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined,{maximumFractionDigits:2});
             let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
             document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
 
-            let maxDrawdown = 0, peakGain = -Infinity, peakGainWithoutUnrealized = -Infinity;
+            let maxDrawdown = 0, peakGain = -Infinity;
             let peakBalance = -Infinity, maxDrawdownCash = 0;
+            // Both max DD and current DD now always include unrealized P/L
             list.forEach(item => {
                 const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
                 if (gainWithUnrealized > peakGain) peakGain = gainWithUnrealized;
-                if (item.gainPercent > peakGainWithoutUnrealized) peakGainWithoutUnrealized = item.gainPercent;
                 const dd = peakGain - gainWithUnrealized;
                 if (dd > maxDrawdown) maxDrawdown = dd;
                 const balWithUnrealized = item.balance + totalUnrealizedPL;
@@ -1112,10 +1082,8 @@
                 const ddCash = peakBalance - balWithUnrealized;
                 if (ddCash > maxDrawdownCash) maxDrawdownCash = ddCash;
             });
-
-            const currentGainWithUnrealized = finalGainWithUnrealized;
-            const peakForCurrent = peakGainWithoutUnrealized;
-            const currentDrawdown = Math.max(0, peakForCurrent - currentGainWithUnrealized);
+            // Current drawdown = peak (incl. unrealized) minus current equity (incl. unrealized)
+            const currentDrawdown = Math.max(0, peakGain - finalGainWithUnrealized);
 
             document.getElementById('metric-max-drawdown').textContent = maxDrawdown.toFixed(2) + '%';
             document.getElementById('metric-current-drawdown').textContent = currentDrawdown.toFixed(2) + '%';
@@ -1141,12 +1109,7 @@
             let currentStreak = 0, maxStreak = 0;
             trades.forEach(t => { if (t.profit > 0) { currentStreak++; if (currentStreak > maxStreak) maxStreak = currentStreak; } else if (t.profit < 0) currentStreak = 0; });
 
-            document.getElementById('stat-total-trades').textContent = totalTrades;
-            document.getElementById('stat-win-rate').textContent = winRate.toFixed(1) + '%';
-            document.getElementById('stat-profit-factor').textContent = profitFactor === Infinity ? '∞' : profitFactor.toFixed(2);
-            document.getElementById('stat-avg-win').textContent = '$' + avgWin.toFixed(2);
-            document.getElementById('stat-avg-loss').textContent = '$' + avgLoss.toFixed(2);
-            document.getElementById('stat-consec-wins').textContent = maxStreak;
+            // Key Trading Performance box removed
 
             const monthlyGainsMap = {};
             let firstDate = null, lastDate = null;
@@ -1174,7 +1137,7 @@
                     const annualReturn = avgMonthly * 12;
                     const annualSD = monthlySD * Math.sqrt(12);
                     const sharpeRatio = annualSD > 0 ? (annualReturn - rfr) / annualSD : 0;
-                    document.getElementById('stat-sharpe-ratio').textContent = sharpeRatio.toFixed(2);
+                    // stat-sharpe-ratio element removed (sidebar deleted)
                 }
             }
         }
@@ -1208,26 +1171,46 @@
                 currM++; if (currM > 11) { currM = 0; currY++; }
             }
 
+            // Collect all non-null values to compute dynamic intensity thresholds
+            const allVals = [];
+            Object.keys(yearsMap).forEach(y => yearsMap[y].forEach(v => { if (v !== null) allVals.push(Math.abs(v)); }));
+            const maxAbs = allVals.length ? Math.max(...allVals) : 10;
+
+            // Returns inline style with green/red background + white text, intensity scales with magnitude
+            function heatStyle(val) {
+                if (val === null) return '';
+                const norm = Math.min(Math.abs(val) / maxAbs, 1); // 0–1
+                // Use a gentle opacity curve: floor at 0.08, ceiling at 0.75
+                const opacity = 0.08 + norm * 0.67;
+                if (val > 0.001)  return `background:rgba(16,185,129,${opacity.toFixed(3)});color:${norm > 0.45 ? '#fff' : '#10b981'};`;
+                if (val < -0.001) return `background:rgba(239,68,68,${opacity.toFixed(3)});color:${norm > 0.45 ? '#fff' : '#ef4444'};`;
+                return 'color:#52525b;';
+            }
+
+            function annualStyle(val) {
+                if (val > 0.01)  return 'background:rgba(16,185,129,0.18);color:#10b981;';
+                if (val < -0.01) return 'background:rgba(239,68,68,0.18);color:#ef4444;';
+                return 'color:#71717a;';
+            }
+
             const sortedYears = Object.keys(yearsMap).sort((a, b) => b - a);
             sortedYears.forEach(year => {
                 const row = document.createElement('tr');
-                row.className = "border-b border-zinc-900/50 hover:bg-zinc-900/30 transition-colors";
+                row.className = "border-b border-zinc-900/50 hover:brightness-110 transition-all";
                 let annualTotal = 0;
                 let html = `<td class="py-3 px-2 text-left font-black text-slate-400 border-r border-zinc-900 bg-black/20 text-[11px]">${year}</td>`;
                 for (let m = 0; m < 12; m++) {
                     const val = yearsMap[year][m];
-                    if (val === null) { html += `<td class="py-3 px-1 text-center text-zinc-800 border-r border-zinc-900 text-[10px]">—</td>`; }
-                    else {
+                    if (val === null) {
+                        html += `<td class="py-3 px-1 text-center border-r border-zinc-900 text-[10px] text-zinc-800">—</td>`;
+                    } else {
                         annualTotal += val;
-                        let cls = 'text-zinc-500';
-                        if (val > 0.001) { if (val > 5) cls = 'h-pos-4'; else if (val > 2) cls = 'h-pos-3'; else if (val > 0.5) cls = 'h-pos-2'; else cls = 'h-pos-1'; }
-                        else if (val < -0.001) { const a = Math.abs(val); if (a > 5) cls = 'h-neg-4'; else if (a > 2) cls = 'h-neg-3'; else if (a > 0.5) cls = 'h-neg-2'; else cls = 'h-neg-1'; }
-                        html += `<td class="py-3 px-1 text-center border-r border-zinc-900 font-bold text-[10px] ${cls}">${(val > 0 ? '+' : '')}${val.toFixed(2)}</td>`;
+                        const style = heatStyle(val);
+                        html += `<td class="py-3 px-1 text-center border-r border-zinc-900 font-black text-[10px] rounded-sm transition-all" style="${style}">${(val > 0 ? '+' : '')}${val.toFixed(2)}%</td>`;
                     }
                 }
-                let annCls = 'text-slate-400';
-                if (annualTotal > 0.01) annCls = 'text-emerald-400'; else if (annualTotal < -0.01) annCls = 'text-rose-400';
-                html += `<td class="py-3 px-2 text-right font-black text-[11px] ${annCls}">${(annualTotal > 0 ? '+' : '')}${annualTotal.toFixed(2)}%</td>`;
+                const annStyle = annualStyle(annualTotal);
+                html += `<td class="py-3 px-2 text-right font-black text-[11px] rounded-sm" style="${annStyle}">${(annualTotal > 0.01 ? '+' : '')}${annualTotal.toFixed(2)}%</td>`;
                 row.innerHTML = html;
                 tbody.appendChild(row);
             });
@@ -1290,6 +1273,24 @@
         }
 
         // ============================================================
+        // RFR / BENCHMARK CONTROLS (user-adjustable)
+        // ============================================================
+        function updateRFR(val) {
+            const v = parseFloat(val);
+            if (!isNaN(v) && v >= 0) {
+                ANNUAL_RISK_FREE_RATE = v;
+                if (processedList.length > 0) computeInstitutionalMetrics(processedList, cachedTotalDeposits);
+            }
+        }
+        function updateBenchmark(val) {
+            const v = parseFloat(val);
+            if (!isNaN(v)) {
+                ANNUAL_BENCHMARK_RETURN = v;
+                if (processedList.length > 0) computeInstitutionalMetrics(processedList, cachedTotalDeposits);
+            }
+        }
+
+                // ============================================================
         // CHART CONTROLS
         // ============================================================
         function changeChartType(type) {
@@ -1345,8 +1346,57 @@
             if (activeChartType === 'gain') { gradientBg.addColorStop(0, 'rgba(16,185,129,0.25)'); gradientBg.addColorStop(1, 'rgba(16,185,129,0)'); }
             else { gradientBg.addColorStop(0, 'rgba(59,130,246,0.25)'); gradientBg.addColorStop(1, 'rgba(59,130,246,0)'); }
 
+            // Live dot dataset — only the final (current) data point, shown as pulsing circle
+            const liveDotValues = datasetValues.map((v, i) => i === datasetValues.length - 1 ? v : null);
+
+            // Custom plugin: pulsing glow circle drawn on the final point every animation frame
+            const liveDotPlugin = {
+                id: 'liveDot',
+                _phase: 0,
+                afterDraw(chart) {
+                    const dataset = chart.data.datasets[0];
+                    const meta = chart.getDatasetMeta(0);
+                    const lastPt = meta.data[meta.data.length - 1];
+                    if (!lastPt) return;
+                    const { x, y } = lastPt;
+                    const ctx2 = chart.ctx;
+                    const t = (Date.now() % 1800) / 1800; // 1.8s cycle
+                    const outerR = 6 + 10 * t;
+                    const alpha = (1 - t) * 0.6;
+                    const color = activeChartType === 'gain' ? '#10b981' : '#3b82f6';
+                    // Outer pulse ring
+                    ctx2.save();
+                    ctx2.beginPath();
+                    ctx2.arc(x, y, outerR, 0, Math.PI * 2);
+                    ctx2.strokeStyle = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba').replace('#10b981', `rgba(16,185,129,${alpha})`).replace('#3b82f6', `rgba(59,130,246,${alpha})`);
+                    ctx2.lineWidth = 2;
+                    ctx2.stroke();
+                    // Inner solid dot
+                    ctx2.beginPath();
+                    ctx2.arc(x, y, 5, 0, Math.PI * 2);
+                    ctx2.fillStyle = color === '#10b981' ? '#10b981' : '#3b82f6';
+                    ctx2.fill();
+                    ctx2.restore();
+                    // Re-trigger animation for continuous pulse
+                    if (!chart._liveDotAnimating) {
+                        chart._liveDotAnimating = true;
+                        const animate = () => {
+                            if (!chart.canvas) return;
+                            chart.draw();
+                            chart._liveDotRaf = requestAnimationFrame(animate);
+                        };
+                        animate();
+                    }
+                },
+                beforeDestroy(chart) {
+                    chart._liveDotAnimating = false;
+                    if (chart._liveDotRaf) cancelAnimationFrame(chart._liveDotRaf);
+                }
+            };
+
             chartInstance = new Chart(ctx, {
                 type: 'line',
+                plugins: [liveDotPlugin],
                 data: { labels, datasets: [{ label: labelString, data: datasetValues, borderColor: accentColor, borderWidth: 2.5, backgroundColor: gradientBg, fill: true, tension: 0.1, pointRadius: aggregatedData.length < 50 ? 3 : 0, pointBackgroundColor: accentColor, pointHoverRadius: 6, pointHitRadius: 10 }] },
                 options: {
                     responsive: true, maintainAspectRatio: false,
