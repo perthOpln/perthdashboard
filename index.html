@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Equity Analytics</title>
-    <!-- Tailwind CSS -->
+    <title>ROWRIC Live Portfolio Auditor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -17,185 +17,141 @@
                         accentGreen: '#10b981',
                         accentRed: '#ef4444',
                         accentBlue: '#3b82f6',
-                        purple: {
-                            400: '#a78bfa',
-                            500: '#8b5cf6',
-                        }
+                        purple: { 400: '#a78bfa', 500: '#8b5cf6' }
                     }
                 }
             }
         }
     </script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- Font Awesome Icons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #000000;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #27272a;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
-        .heatmap-cell { @apply py-3 px-1 text-center border-r border-zinc-900 text-[10px] font-black transition-all duration-200 bg-black; }
-        .heatmap-year { @apply font-black text-zinc-500 bg-black border-l border-zinc-900 w-16 text-[11px]; }
-        .heatmap-annual { @apply font-black border-l border-zinc-900 border-r border-zinc-900 bg-black text-[11px]; }
-        
-        /* Heatmap Intensities */
-        .h-pos-1 { color: #10b981; }
-        .h-pos-2 { color: #10b981; }
-        .h-pos-3 { color: #10b981; }
-        .h-pos-4 { color: #10b981; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-        .h-neg-1 { color: #ef4444; }
-        .h-neg-2 { color: #ef4444; }
-        .h-neg-3 { color: #ef4444; }
-        .h-neg-4 { color: #ef4444; }
-
+        .heatmap-cell { padding: .5rem .25rem; text-align:center; border-right:1px solid #18181b; font-size:10px; font-weight:900; background:#000; }
+        .h-pos-1,.h-pos-2,.h-pos-3,.h-pos-4 { color:#10b981; }
+        .h-neg-1,.h-neg-2,.h-neg-3,.h-neg-4 { color:#ef4444; }
         .heatmap-row:hover .heatmap-cell:not(.heatmap-year):not(.heatmap-annual) { filter: brightness(1.2); }
+
         .open-trades-table { table-layout: fixed; width: 100%; }
-        .open-trades-table th,
-        .open-trades-table td { white-space: nowrap; }
+        .open-trades-table th, .open-trades-table td { white-space: nowrap; }
         .open-trades-table .col-open-time { min-width: 160px; }
         .open-trades-table .col-symbol { min-width: 100px; }
         .open-trades-table .col-volume { min-width: 80px; }
-        .open-trades-table .col-open-price,
-        .open-trades-table .col-tp,
-        .open-trades-table .col-sl,
-        .open-trades-table .col-current-price,
-        .open-trades-table .col-gain,
-        .open-trades-table .col-commission,
-        .open-trades-table .col-swap,
-        .open-trades-table .col-profit { min-width: 100px; }
+        .open-trades-table .col-open-price, .open-trades-table .col-tp, .open-trades-table .col-sl,
+        .open-trades-table .col-current-price, .open-trades-table .col-gain, .open-trades-table .col-commission,
+        .open-trades-table .col-swap, .open-trades-table .col-profit { min-width: 100px; }
         .open-trades-table .col-holding { min-width: 110px; }
+
+        .monthly-table { table-layout: fixed; width: 100%; border-spacing: 0; min-width: 1000px; }
+        .monthly-table th { padding: .6rem .25rem; font-size:10px; font-weight:900; text-transform:uppercase; color:#52525b; border-bottom:1px solid #18181b; text-align:right; font-variant-numeric: tabular-nums; }
+        .monthly-table td { padding: .6rem .25rem; font-size:11px; border-bottom:1px solid #18181b80; color:#a1a1aa; text-align:right; font-variant-numeric: tabular-nums; }
+        .monthly-table th:first-child, .monthly-table td:first-child { text-align:left; width:60px; }
+        .monthly-table th:last-child, .monthly-table td:last-child { width:100px; }
+
+        .metric-card { background: rgba(24,24,27,0.4); border:1px solid #18181b; border-radius: 0.75rem; padding: 1rem; transition: all .3s ease; }
+        .metric-card:hover { background: rgba(255,255,255,0.03); border-color:#3f3f46; }
+        .metric-label { font-size:10px; text-transform:uppercase; letter-spacing:.15em; color:#71717a; font-weight:700; margin-bottom:.25rem; }
+        .metric-value { font-size:1.5rem; font-weight:900; }
+        .val-pos { color:#10b981; }
+        .val-neg { color:#ef4444; }
+        .val-neutral { color:#a1a1aa; }
+
+        #table-tooltip {
+            position: fixed; pointer-events:none; background: rgba(9,9,11,0.97); border:1px solid #27272a;
+            padding:12px 14px; border-radius:8px; z-index:10000; display:none; box-shadow: 0 20px 40px rgba(0,0,0,.5);
+        }
     </style>
 </head>
-<body class="bg-darkBg text-slate-100 font-sans min-h-screen transition-colors duration-200">
+
+<body class="bg-darkBg text-slate-100 font-sans min-h-screen">
+    <div id="table-tooltip"></div>
 
     <main class="max-w-7xl mx-auto p-4 py-12 space-y-6">
 
-        <!-- Global Market Clocks -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm">
-            <div class="flex flex-col gap-1 text-center">
-                <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
-                <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
+        <!-- Header / World Clocks -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm flex flex-col gap-2">
+            <div class="flex justify-between items-center px-2">
+                <div>
+                    <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
+                    <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
+                </div>
+                <button id="exportBtn" class="px-4 py-2 rounded-full bg-white text-black text-[10px] uppercase tracking-[0.25em] font-black hover:bg-zinc-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-down"></i> Export Audit PDF
+                </button>
             </div>
-            <div class="flex flex-row flex-nowrap justify-center gap-1 mt-2 overflow-x-auto pb-1">
-                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
-                        <div class="flex items-center justify-center gap-1">
-                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">New York</span>
-                            <i id="ny-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
-                        </div>
-                        <p id="ny-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
-                        <p id="ny-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
-                    </div>
-                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
-                        <div class="flex items-center justify-center gap-1">
-                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">London</span>
-                            <i id="london-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
-                        </div>
-                        <p id="london-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
-                        <p id="london-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
-                    </div>
-                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
-                        <div class="flex items-center justify-center gap-1">
-                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Sydney</span>
-                            <i id="sydney-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
-                        </div>
-                        <p id="sydney-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
-                        <p id="sydney-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
-                    </div>
-                    <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
-                        <div class="flex items-center justify-center gap-1">
-                            <span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Tokyo</span>
-                            <i id="tokyo-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i>
-                        </div>
-                        <p id="tokyo-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
-                        <p id="tokyo-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
-                    </div>
+            <div class="flex flex-row flex-nowrap justify-center gap-1 mt-1 overflow-x-auto pb-1">
+                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                    <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">New York</span><i id="ny-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
+                    <p id="ny-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                    <p id="ny-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                </div>
+                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                    <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">London</span><i id="london-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
+                    <p id="london-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                    <p id="london-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                </div>
+                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                    <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Sydney</span><i id="sydney-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
+                    <p id="sydney-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                    <p id="sydney-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                </div>
+                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                    <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Tokyo</span><i id="tokyo-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
+                    <p id="tokyo-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
+                    <p id="tokyo-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
+                </div>
             </div>
         </div>
 
-        <!-- Metric Cards -->
+        <div id="capture-area" class="space-y-6">
+
+        <!-- Top Metric Cards -->
         <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-            <!-- Gain % Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-emerald-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-percent"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-emerald-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-percent"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Gain (TWR)</p>
                 <h3 id="metric-twr-gain" class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">--%</h3>
-                <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                    <i class="fa-solid fa-circle-check"></i> <span id="gain-method-subtext">Geometric compounding</span>
-                </p>
+                <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> <span id="gain-method-subtext">Geometric compounding</span></p>
             </div>
-
-            <!-- Absolute Gain % Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-teal-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-arrow-trend-up"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-teal-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-arrow-trend-up"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Abs. Gain</p>
                 <h3 id="metric-abs-gain" class="text-2xl sm:text-3xl font-black text-teal-400 mt-1">--%</h3>
                 <p class="text-[10px] text-slate-500 mt-1">Profit / Total Deposits</p>
             </div>
-
-            <!-- Absolute Profit Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-blue-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-money-bill-trend-up"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-blue-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-money-bill-trend-up"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Net Profit</p>
                 <h3 id="metric-net-profit" class="text-2xl sm:text-3xl font-black text-slate-100 mt-1">$--</h3>
                 <p id="metric-roi" class="text-[10px] text-slate-500 mt-1">Profit value sum</p>
             </div>
-
-            <!-- Balance Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-indigo-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-wallet"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-indigo-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-wallet"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Balance</p>
                 <h3 id="metric-balance" class="text-2xl sm:text-3xl font-black text-indigo-400 mt-1">$--</h3>
                 <p id="metric-deposits" class="text-[10px] text-slate-500 mt-1">Deposits: $--</p>
             </div>
-
-            <!-- Drawdown Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-rose-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-circle-down"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-rose-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-circle-down"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Max Drawdown</p>
                 <h3 id="metric-max-drawdown" class="text-2xl sm:text-3xl font-black text-rose-400 mt-1">--%</h3>
                 <p class="text-[10px] text-slate-500 mt-1">Max peak-to-trough drop</p>
             </div>
-
-            <!-- Current Drawdown Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-purple-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-chart-line-down"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-purple-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-chart-line-down"></i></div>
                 <p class="text-xs text-slate-400 font-bold">Current Drawdown</p>
                 <h3 id="metric-current-drawdown" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">--%</h3>
                 <p class="text-[10px] text-slate-500 mt-1">From all-time peak</p>
             </div>
-
-            <!-- Unrealized Profit Card -->
             <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-2 md:col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-amber-500/10 text-5xl group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                </div>
+                <div class="absolute top-0 right-0 p-3 text-amber-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-clock-rotate-left"></i></div>
                 <div class="flex items-center gap-2">
                     <p class="text-xs text-slate-400 font-bold">Unrealized P/L</p>
                     <span class="flex h-1.5 w-1.5 relative">
@@ -210,15 +166,13 @@
 
         <!-- Main Chart & Sidebar Analytics -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- Interactive Chart Panel -->
             <div class="lg:col-span-2 bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl flex flex-col justify-between">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
                     <div>
                         <h2 class="text-sm font-bold text-slate-200">Equity Curve & Portfolio Gain</h2>
                         <p class="text-xs text-slate-500">Track Time-Weighted Gain vs. Account Balance</p>
                     </div>
-                    <div class="flex gap-3">
+                    <div class="flex gap-3 flex-wrap">
                         <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
                             <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
                             <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
@@ -231,238 +185,400 @@
                         </div>
                     </div>
                 </div>
-                <div class="relative w-full h-[350px]">
-                    <canvas id="equityChart"></canvas>
+                <div class="relative w-full h-[300px]"><canvas id="equityChart"></canvas></div>
+                <div class="relative w-full h-[100px] mt-4">
+                    <p class="text-[9px] font-black uppercase text-zinc-700 tracking-[0.3em] mb-1">Underwater Return Profile (%)</p>
+                    <canvas id="drawdownChart"></canvas>
                 </div>
             </div>
 
-            <!-- Advanced Metrics and Info -->
             <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl space-y-4 font-sans">
                 <h2 class="text-sm font-bold text-slate-200 border-b border-zinc-800 pb-2">Key Trading Performance</h2>
-                
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Trades</p>
-                        <p id="stat-total-trades" class="text-lg font-bold text-slate-200 mt-0.5">--</p>
-                    </div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Win Rate</p>
-                        <p id="stat-win-rate" class="text-lg font-bold text-emerald-400 mt-0.5">--%</p>
-                    </div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Profit Factor</p>
-                        <p id="stat-profit-factor" class="text-lg font-bold text-slate-200 mt-0.5">--</p>
-                    </div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Win</p>
-                        <p id="stat-avg-win" class="text-lg font-bold text-emerald-400 mt-0.5">$--</p>
-                    </div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Loss</p>
-                        <p id="stat-avg-loss" class="text-lg font-bold text-rose-400 mt-0.5">$--</p>
-                    </div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Max Consecutive Wins</p>
-                        <p id="stat-consec-wins" class="text-lg font-bold text-slate-200 mt-0.5">--</p>
-                    </div>
-                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Ann. Sharpe Ratio</p>
-                        <p id="stat-sharpe-ratio" class="text-lg font-bold text-indigo-400 mt-0.5">0.00</p>
-                    </div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Trades</p><p id="stat-total-trades" class="text-lg font-bold text-slate-200 mt-0.5">--</p></div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Win Rate</p><p id="stat-win-rate" class="text-lg font-bold text-emerald-400 mt-0.5">--%</p></div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Profit Factor</p><p id="stat-profit-factor" class="text-lg font-bold text-slate-200 mt-0.5">--</p></div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Win</p><p id="stat-avg-win" class="text-lg font-bold text-emerald-400 mt-0.5">$--</p></div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Average Loss</p><p id="stat-avg-loss" class="text-lg font-bold text-rose-400 mt-0.5">$--</p></div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Max Consecutive Wins</p><p id="stat-consec-wins" class="text-lg font-bold text-slate-200 mt-0.5">--</p></div>
+                    <div class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50"><p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Ann. Sharpe Ratio</p><p id="stat-sharpe-ratio" class="text-lg font-bold text-indigo-400 mt-0.5">0.00</p></div>
                 </div>
             </div>
         </div>
 
-        <!-- Monthly Breakdown Grid and Transactions History -->
-        <div class="space-y-6">
-            <!-- Open Trades (Unrealized) -->
-            <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-satellite-dish text-amber-400"></i> Open Positions (Unrealized)
-                    </h2>
-                    <span id="open-trades-count" class="text-xs bg-amber-900/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20">0 Active</span>
-                </div>
-                <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
-                    <table class="open-trades-table w-full text-xs text-left text-slate-300">
-                        <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
-                                            <tr>
-                                <th class="px-4 py-2.5 col-open-time">Open Time</th>
-                                <th class="px-4 py-2.5 col-symbol">Symbol</th>
-                                <th class="px-4 py-2.5 col-type">Type</th>
-                                <th class="px-4 py-2.5 text-right col-volume">Volume</th>
-                                <th class="px-4 py-2.5 text-right col-open-price">Open Price</th>
-                                <th class="px-4 py-2.5 text-right col-tp">TP</th>
-                                <th class="px-4 py-2.5 text-right col-sl">SL</th>
-                                <th class="px-4 py-2.5 text-right col-current-price">Current Price</th>
-                                <th class="px-4 py-2.5 text-right col-gain">Gain %</th>
-                                <th class="px-4 py-2.5 text-right col-commission">Commission</th>
-                                <th class="px-4 py-2.5 text-right col-swap">Swap</th>
-                                <th class="px-4 py-2.5 text-right col-profit">Profit</th>
-                                <th class="px-4 py-2.5 text-right col-holding">Holding</th>
-                            </tr>
-                        </thead>
-                        <tbody id="open-transaction-rows" class="divide-y divide-zinc-800">
-                            <tr>
-                                <td colspan="13" class="text-center py-8 text-slate-500">Connecting to Live Feed (Sheet 2)...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Institutional Risk & Return Analytics -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Risk & Return Analytics</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="metric-card"><p class="metric-label">Annualized CAGR</p><p id="stat-cagr" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Avg. Monthly Gain</p><p id="stat-avg-monthly" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Avg. Daily Gain</p><p id="stat-avg-daily" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Annualized Sharpe</p><p id="stat-sharpe" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Annualized Sortino</p><p id="stat-sortino" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">MAR / Calmar</p><p id="stat-calmar" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Success Prob.</p><p id="stat-wr2" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Realized Vol (Ann.)</p><p id="stat-vol" class="metric-value">-</p></div>
             </div>
+        </div>
 
-            <!-- Monthly Heatmap -->
-            <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
-                <h2 class="text-sm font-bold text-slate-200 mb-6 flex items-center gap-2">
-                    <i class="fa-regular fa-calendar-days text-emerald-400"></i> Monthly Return Sheet (%)
-                </h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full border-collapse border border-zinc-900">
-                        <thead>
-                            <tr class="text-[10px] font-black uppercase text-zinc-500 tracking-widest bg-black">
-                                <th class="py-3 px-2 border-b border-zinc-800 text-left border-r border-zinc-900">Year</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Jan</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Feb</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Mar</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Apr</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">May</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Jun</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Jul</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Aug</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Sep</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Oct</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Nov</th>
-                                <th class="py-3 px-1 border-b border-zinc-800 text-center border-r border-zinc-900">Dec</th>
-                                <th class="py-3 px-2 border-b border-zinc-800 text-right">Annual</th>
-                            </tr>
-                        </thead>
-                        <tbody id="monthly-heatmap-body">
-                            <tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting cycles...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Risk Assessment -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Risk Assessment</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="metric-card"><p class="metric-label">Parametric VaR (95%)</p><p id="stat-var" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Profit Factor</p><p id="stat-pf" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Recovery Factor</p><p id="stat-rec" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Return Expectancy</p><p id="stat-expectancy" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Risk/Reward Profile</p><p id="stat-rr" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Alpha (vs Benchmark)</p><p id="stat-alpha" class="metric-value">-</p></div>
             </div>
+            <p class="text-[9px] text-zinc-600 mt-4 uppercase tracking-widest">Alpha assumes a static annual risk-free rate of <span id="rfr-display"></span>% and benchmark return of <span id="bmk-display"></span>% (no live macro feed connected)</p>
+        </div>
 
-            <!-- Transaction Log -->
-            <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-list text-teal-400"></i> Detailed Transactions History (By Close Date)
-                    </h2>
-                    <span id="history-count" class="text-xs bg-zinc-800 text-slate-300 px-2 py-0.5 rounded-full">0 Entries</span>
-                </div>
-                <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
-                    <table class="w-full text-xs text-left text-slate-300">
-                        <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
-                            <tr>
-                                <th class="px-4 py-2.5 text-left">In Time</th>
-                                <th class="px-4 py-2.5 text-left">Out Time</th>
-                                <th class="px-4 py-2.5 text-left">Symbol</th>
-                                <th class="px-4 py-2.5">Type</th>
-                                <th class="px-4 py-2.5 text-right">Volume</th>
-                                <th class="px-4 py-2.5 text-right">In Price</th>
-                                <th class="px-4 py-2.5 text-right">Out Price</th>
-                                <th class="px-4 py-2.5 text-right">Profit</th>
-                                <th class="px-4 py-2.5 text-right">Gain %</th>
-                                <th class="px-4 py-2.5 text-right">Commission</th>
-                                <th class="px-4 py-2.5 text-right">Swap</th>
-                                <th class="px-4 py-2.5 text-right">Magic</th>
-                                <th class="px-4 py-2.5 text-right">Holding Time</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transaction-rows" class="divide-y divide-zinc-800">
-                            <tr>
-                                <td colspan="13" class="text-center py-8 text-slate-500">Awaiting data fetch...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <!-- Holding Period Distribution -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Holding Period Distribution</h4>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                <div class="h-[320px] relative"><canvas id="durationChart"></canvas></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="metric-card"><p class="metric-label">Avg Holding</p><p id="dur-avg" class="metric-value">-</p></div>
+                    <div class="metric-card"><p class="metric-label">Max Holding</p><p id="dur-max" class="metric-value">-</p></div>
+                    <div class="metric-card"><p class="metric-label">Min Holding</p><p id="dur-min" class="metric-value">-</p></div>
+                    <div class="metric-card"><p class="metric-label">Tail Risk Duration</p><p id="dur-p5" class="metric-value">-</p></div>
                 </div>
             </div>
-        </div> 
+        </div>
+
+        <!-- Temporal Attribution -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
+                <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Temporal Return Attribution</h4>
+                <p class="text-[10px] text-zinc-600 uppercase tracking-widest">Basis: Close Timestamp (Local Sheet Time)</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/60 h-[280px]">
+                    <p class="metric-label mb-2">Intraday Periodicity (Cum. %)</p>
+                    <div class="h-[220px] relative"><canvas id="hourlyChart"></canvas></div>
+                </div>
+                <div class="bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/60 h-[280px]">
+                    <p class="metric-label mb-2">Day-of-Week Periodicity (Cum. %)</p>
+                    <div class="h-[220px] relative"><canvas id="dailyPatternChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Factor Attribution -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Factor Type Attribution (Long / Short)</h4>
+            <div id="distribution-stats" class="flex justify-between items-end mb-6"></div>
+            <div class="h-[28px] relative w-full mb-8"><canvas id="attributionPieChart"></canvas></div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-zinc-800">
+                            <th class="py-3 text-left text-zinc-500 uppercase tracking-widest font-black">Direction</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">Exposure</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">Profit Factor</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">Success Rate</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">Expected Return</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attribution-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Risk of Ruin -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl overflow-hidden">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Probability of Capital Depletion</h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-zinc-800 text-center">
+                            <th class="py-3 text-left text-zinc-500 uppercase tracking-widest font-black">Capital Loss</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">10%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">20%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">30%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">40%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">50%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">60%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">70%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">80%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">90%</th>
+                            <th class="py-3 text-right text-zinc-500 uppercase tracking-widest font-black">100%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="py-4 text-left font-black tracking-widest text-zinc-300 uppercase">Probability</td>
+                            <td id="ror-10" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-20" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-30" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-40" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-50" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-60" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-70" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-80" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-90" class="py-4 text-center font-medium text-zinc-400">-</td>
+                            <td id="ror-100" class="py-4 text-center font-medium text-zinc-400">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monte Carlo -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Monte Carlo Simulation</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div class="metric-card bg-white/[0.02] border-white/10"><p class="metric-label">Sims / Sample Size</p><div class="flex items-baseline gap-2"><p id="mc-sim-count" class="text-xl font-light">-</p><span class="text-zinc-600 text-xs">/</span><p id="mc-trade-count" class="text-xl font-light">-</p></div></div>
+                <div class="metric-card"><p class="metric-label">Median Final Return</p><p id="mc-median-ret" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Best Case (95%)</p><p id="mc-best-case" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Outcome Variance Factor</p><p id="mc-range" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">5% Profit Floor</p><p id="mc-tail-outcome" class="metric-value text-emerald-500">-</p></div>
+                <div class="metric-card"><p class="metric-label">Capital Risk (Principal)</p><p id="mc-worst-ret" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Prob. of Profit</p><p id="mc-prob-profit" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Robustness Score</p><p id="mc-robust-score" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Median Max DD</p><p id="mc-median-dd" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Worst Max DD (95%)</p><p id="mc-worst-dd" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Stagnation (Median/P95)</p><p id="mc-stagnation" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Bankruptcy Risk</p><p id="mc-ruin" class="metric-value">-</p></div>
+            </div>
+            <div class="mt-6 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/60">
+                <p class="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] mb-4">Monte Carlo Path Distribution (Percentile Projections)</p>
+                <div class="h-[280px] w-full relative"><canvas id="mcChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Open Trades -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-satellite-dish text-amber-400"></i> Open Positions (Unrealized)</h2>
+                <span id="open-trades-count" class="text-xs bg-amber-900/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20">0 Active</span>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
+                <table class="open-trades-table w-full text-xs text-left text-slate-300">
+                    <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
+                        <tr>
+                            <th class="px-4 py-2.5 col-open-time">Open Time</th>
+                            <th class="px-4 py-2.5 col-symbol">Symbol</th>
+                            <th class="px-4 py-2.5 col-type">Type</th>
+                            <th class="px-4 py-2.5 text-right col-volume">Volume</th>
+                            <th class="px-4 py-2.5 text-right col-open-price">Open Price</th>
+                            <th class="px-4 py-2.5 text-right col-tp">TP</th>
+                            <th class="px-4 py-2.5 text-right col-sl">SL</th>
+                            <th class="px-4 py-2.5 text-right col-current-price">Current Price</th>
+                            <th class="px-4 py-2.5 text-right col-gain">Gain %</th>
+                            <th class="px-4 py-2.5 text-right col-commission">Commission</th>
+                            <th class="px-4 py-2.5 text-right col-swap">Swap</th>
+                            <th class="px-4 py-2.5 text-right col-profit">Profit</th>
+                            <th class="px-4 py-2.5 text-right col-holding">Holding</th>
+                        </tr>
+                    </thead>
+                    <tbody id="open-transaction-rows" class="divide-y divide-zinc-800">
+                        <tr><td colspan="13" class="text-center py-8 text-slate-500">Connecting to Live Feed (Sheet 2)...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly Heatmap -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
+            <h2 class="text-sm font-bold text-slate-200 mb-6 flex items-center gap-2"><i class="fa-regular fa-calendar-days text-emerald-400"></i> Monthly Return Sheet (%)</h2>
+            <div class="overflow-x-auto">
+                <table class="monthly-table border-collapse border border-zinc-900">
+                    <thead>
+                        <tr>
+                            <th>Year</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+                            <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th class="text-zinc-500">Annual</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthly-heatmap-body">
+                        <tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting cycles...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Notional Exposure Matrix -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
+            <h2 class="text-sm font-bold text-slate-200 mb-6 flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-indigo-400"></i> Notional Exposure Matrix (Lots)</h2>
+            <div class="overflow-x-auto">
+                <table class="monthly-table border-collapse border border-zinc-900">
+                    <thead>
+                        <tr>
+                            <th>Year</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+                            <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th class="text-zinc-500">Total Lots</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lots-monthly-body">
+                        <tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting cycles...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Commission Rebate Audit -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Commission Rebate Audit</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="metric-card"><p class="metric-label">Total Cumulative Lots</p><p id="stat-total-lots" class="metric-value">-</p></div>
+                <div class="metric-card"><p class="metric-label">Est. Rebate ($7/Lot)</p><p id="stat-total-rebate" class="metric-value">-</p></div>
+            </div>
+        </div>
+
+        <!-- Transaction Log -->
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-list text-teal-400"></i> Detailed Transactions History (By Close Date)</h2>
+                <span id="history-count" class="text-xs bg-zinc-800 text-slate-300 px-2 py-0.5 rounded-full">0 Entries</span>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
+                <table class="w-full text-xs text-left text-slate-300">
+                    <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
+                        <tr>
+                            <th class="px-4 py-2.5 text-left">In Time</th>
+                            <th class="px-4 py-2.5 text-left">Out Time</th>
+                            <th class="px-4 py-2.5 text-left">Symbol</th>
+                            <th class="px-4 py-2.5">Type</th>
+                            <th class="px-4 py-2.5 text-right">Volume</th>
+                            <th class="px-4 py-2.5 text-right">In Price</th>
+                            <th class="px-4 py-2.5 text-right">Out Price</th>
+                            <th class="px-4 py-2.5 text-right">Profit</th>
+                            <th class="px-4 py-2.5 text-right">Gain %</th>
+                            <th class="px-4 py-2.5 text-right">Commission</th>
+                            <th class="px-4 py-2.5 text-right">Swap</th>
+                            <th class="px-4 py-2.5 text-right">Magic</th>
+                            <th class="px-4 py-2.5 text-right">Holding Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-rows" class="divide-y divide-zinc-800">
+                        <tr><td colspan="13" class="text-center py-8 text-slate-500">Awaiting data fetch...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        </div><!-- /capture-area -->
 
     </main>
 
     <script>
-        // Global Configuration
-        const SPREADSHEET_ID = "2PACX-1vQQj8EzNYOAPc70wbmz--2hiq1tfeH76njnadmTVs-3UZIxH7JDcJuXzhDQeRw4Ee3hEtFbyYJP2yNg";
+        // ============================================================
+        // GLOBAL CONFIGURATION
+        // ============================================================
+        const SPREADSHEET_ID = "13njb8MTv1zgHP-HZ881MkXyCPOTrNGqyT7zP6-YHNH0";
+        const LEGACY_SPREADSHEET_ID = "2PACX-1vQQj8EzNYOAPc70wbmz--2hiq1tfeH76njnadmTVs-3UZIxH7JDcJuXzhDQeRw4Ee3hEtFbyYJP2yNg";
+        const OPEN_TRADES_GID = "1116835953";
 
-        // Global State
+        // Static macro assumptions used only for Sharpe/Sortino/Alpha (no live feed available)
+        const ANNUAL_RISK_FREE_RATE = 4.48;   // %
+        const ANNUAL_BENCHMARK_RETURN = 10.0; // %
+        const REBATE_PER_LOT = 7; // $ per lot
+
+        // ============================================================
+        // GLOBAL STATE
+        // ============================================================
         let rawCSVData = [];
-        let mappedTransactions = [];
-        let chartInstance = null;
-        let activeChartType = 'gain'; // 'gain' or 'balance'
-        let activePeriodMode = 'trade'; // 'trade', 'daily', 'monthly', 'yearly'
-        let gainCalculationMethod = 'compounded'; // Defaults to compounded
+        let processedList = [];      // full processed transaction/trade list (cached)
+        let cachedTotalDeposits = 0;
+        let cachedTotalWithdrawals = 0;
+        let chartInstance = null, drawdownChartInstance = null, durationChartInstance = null;
+        let attributionChartInstance = null, hourlyChartInstance = null, dailyPatternChartInstance = null, mcChartInstance = null;
+        let activeChartType = 'gain';
+        let activePeriodMode = 'trade';
+        let gainCalculationMethod = 'compounded';
         let portfolioDataChecksum = '';
         let latestPortfolioBalance = NaN;
-        let totalUnrealizedPL = 0; // Total unrealized P/L from open trades
-        let isFirstChartRender = true; // Track first render for animation
-        let columnMapping = {
-            date: '',
-            profit: '',
-            balance: '',
-            type: '',
-            openDate: '',
-            symbol: '',
-            volume: '',
-            openPrice: '',
-            closePrice: '',
-            magic: ''
-        };
-        let openTradeColumnMapping = {
-            time: '',
-            status: '',
-            symbol: '',
-            type: '',
-            volume: '',
-            openPrice: '',
-            currentPrice: '',
-            takeProfit: '',
-            stopLoss: '',
-            commission: '',
-            swap: '',
-            profit: ''
-        };
+        let totalUnrealizedPL = 0;
+        let isFirstChartRender = true;
+        let isFetchingOpenTrades = false;
+        let isFetchingPortfolio = false;
 
-        // UI Event Listeners
-        window.onload = function() {
+        let columnMapping = { date:'', profit:'', balance:'', type:'', openDate:'', symbol:'', volume:'', openPrice:'', closePrice:'', magic:'' };
+        let openTradeColumnMapping = { time:'', status:'', symbol:'', type:'', volume:'', openPrice:'', currentPrice:'', takeProfit:'', stopLoss:'', commission:'', swap:'', profit:'' };
+
+        document.getElementById('rfr-display').textContent = ANNUAL_RISK_FREE_RATE.toFixed(2);
+        document.getElementById('bmk-display').textContent = ANNUAL_BENCHMARK_RETURN.toFixed(2);
+
+        window.onload = function () {
             updateWorldClocks();
             setInterval(updateWorldClocks, 1000);
             fetchAndParseCSV(true);
-            // Real-time loop for Unrealized Profit (Sheet 2)
             fetchOpenTrades();
             setInterval(fetchOpenTrades, 1000);
-            // Refresh portfolio data only when closed trades / transactions change.
             setInterval(() => fetchAndParseCSV(false), 15000);
         };
 
-        const OPEN_TRADES_GID = "1116835953"; // This GID points to the working live open positions feed
+        // ============================================================
+        // OPEN TRADES (LIVE, 1s POLL) — light-weight updates only
+        // ============================================================
+        function buildSheetCsvUrls(sheetId, gid = '') {
+            const timestamp = Date.now();
+            const params = new URLSearchParams();
+            if (gid) params.set('gid', gid);
+            params.set('single', 'true');
+            params.set('output', 'csv');
+            params.set('t', timestamp.toString());
+            const pubUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?${params.toString()}`;
+            const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}&t=${timestamp}`;
+            return [pubUrl, exportUrl];
+        }
 
-        // Fetcher for Sheet 2
-        function fetchOpenTrades() {
-            const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?gid=${OPEN_TRADES_GID}&single=true&output=csv&t=${Date.now()}`;
+        function fetchSheetCsv(sheetId, gid, onSuccess, onError, fallbackSheetId = null) {
+            const urls = buildSheetCsvUrls(sheetId, gid);
+            if (fallbackSheetId) urls.push(...buildSheetCsvUrls(fallbackSheetId, gid));
 
-            Papa.parse(url, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    if (!results || !Array.isArray(results.data) || results.data.length === 0) {
-                        showOpenTradesError('Live feed unreachable or no data returned from Sheet 2.');
-                        return;
-                    }
-                    if (isHTMLResponse(results.data)) {
-                        showOpenTradesError('Live feed returned an HTML error page. Verify Sheet 2 is published and accessible.');
-                        return;
-                    }
-                    autoDetectOpenTradeColumns(results.meta.fields || [], results.data[0] || {});
-                    processOpenTrades(results.data);
-                },
-                error: function(err) {
-                    console.error('Live feed connection error', err);
-                    showOpenTradesError('Live feed fetch failed. See console for details.');
+            let attemptIndex = 0;
+            const attempt = () => {
+                if (attemptIndex >= urls.length) {
+                    onError(new Error('No sheet URLs remained to try.'));
+                    return;
                 }
-            });
+                Papa.parse(urls[attemptIndex], {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        const hasHtmlError = isHTMLResponse(results.data || []);
+                        if (hasHtmlError && attemptIndex < urls.length - 1) {
+                            attemptIndex += 1;
+                            attempt();
+                            return;
+                        }
+                        onSuccess(results);
+                    },
+                    error: function (err) {
+                        if (attemptIndex < urls.length - 1) {
+                            attemptIndex += 1;
+                            attempt();
+                            return;
+                        }
+                        onError(err);
+                    }
+                });
+            };
+            attempt();
+        }
+
+        function fetchOpenTrades() {
+            if (isFetchingOpenTrades) return;
+            isFetchingOpenTrades = true;
+            fetchSheetCsv(SPREADSHEET_ID, OPEN_TRADES_GID, function (results) {
+                isFetchingOpenTrades = false;
+                if (!results || !Array.isArray(results.data) || results.data.length === 0) {
+                    showOpenTradesError('Live feed unreachable or no data returned from Sheet 2.'); return;
+                }
+                if (isHTMLResponse(results.data)) {
+                    showOpenTradesError('Live feed returned an HTML error page. Verify Sheet 2 is published and accessible.'); return;
+                }
+                autoDetectOpenTradeColumns(results.meta.fields || [], results.data[0] || {});
+                processOpenTrades(results.data);
+            }, function (err) {
+                isFetchingOpenTrades = false;
+                console.error('Live feed connection error', err);
+                showOpenTradesError('Live feed fetch failed. See console for details.');
+            }, LEGACY_SPREADSHEET_ID);
         }
 
         function showOpenTradesError(message) {
@@ -470,38 +586,28 @@
             const countEl = document.getElementById('open-trades-count');
             const metricEl = document.getElementById('metric-unrealized-pl');
             if (countEl) countEl.textContent = 'Offline';
-            if (metricEl) {
-                metricEl.textContent = '--';
-                metricEl.className = 'text-2xl sm:text-3xl font-black mt-1 text-slate-400';
-            }
-            if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">${message}</td></tr>`;
-            }
+            if (metricEl) { metricEl.textContent = '--'; metricEl.className = 'text-2xl sm:text-3xl font-black mt-1 text-slate-400'; }
+            if (tbody) tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">${message}</td></tr>`;
         }
 
         function getZoneInfo(timeZone) {
             const now = new Date();
-            const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone });
-            const offset = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
-                .formatToParts(now)
-                .find(part => part.type === 'timeZoneName')?.value || '';
+            const time = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone });
+            const offset = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName:'short' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
             return { time, offset };
         }
-
         function getGreetingFromHour(hour) {
             if (hour >= 5 && hour < 12) return 'Good Morning, Perth!';
             if (hour >= 12 && hour < 18) return 'Good Afternoon, Perth!';
             return 'Good Evening, Perth!';
         }
-
         function updateWorldClocks() {
             const cities = [
-                { id: 'ny-clock', iconId: 'ny-icon', offsetId: 'ny-offset', zone: 'America/New_York' },
-                { id: 'london-clock', iconId: 'london-icon', offsetId: 'london-offset', zone: 'Europe/London' },
-                { id: 'sydney-clock', iconId: 'sydney-icon', offsetId: 'sydney-offset', zone: 'Australia/Sydney' },
-                { id: 'tokyo-clock', iconId: 'tokyo-icon', offsetId: 'tokyo-offset', zone: 'Asia/Tokyo' }
+                { id:'ny-clock', iconId:'ny-icon', offsetId:'ny-offset', zone:'America/New_York' },
+                { id:'london-clock', iconId:'london-icon', offsetId:'london-offset', zone:'Europe/London' },
+                { id:'sydney-clock', iconId:'sydney-icon', offsetId:'sydney-offset', zone:'Australia/Sydney' },
+                { id:'tokyo-clock', iconId:'tokyo-icon', offsetId:'tokyo-offset', zone:'Asia/Tokyo' }
             ];
-
             cities.forEach(city => {
                 const info = getZoneInfo(city.zone);
                 const clockEl = document.getElementById(city.id);
@@ -510,21 +616,15 @@
                 if (clockEl) clockEl.textContent = info.time;
                 if (offsetEl) offsetEl.textContent = info.offset;
                 if (iconEl) {
-                    const hour = parseInt(new Intl.DateTimeFormat('en-US', { hour: '2-digit', hour12: false, timeZone: city.zone }).format(new Date()), 10);
+                    const hour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone: city.zone }).format(new Date()), 10);
                     const isDay = hour >= 6 && hour < 18;
                     iconEl.className = `fa-solid fa-${isDay ? 'sun' : 'moon'} ${isDay ? 'text-amber-400' : 'text-slate-400'} text-[9px]`;
                 }
             });
-
             const bangkokInfo = getZoneInfo('Asia/Bangkok');
             const bangkokText = document.getElementById('bangkok-text');
             if (bangkokText) bangkokText.textContent = `Bangkok: ${bangkokInfo.time} (${bangkokInfo.offset})`;
-
-            const perthHour = parseInt(new Intl.DateTimeFormat('en-US', {
-                hour: '2-digit',
-                hour12: false,
-                timeZone: 'Australia/Perth'
-            }).format(new Date()), 10);
+            const perthHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Australia/Perth' }).format(new Date()), 10);
             const greetingEl = document.getElementById('perth-greeting');
             if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour);
         }
@@ -532,9 +632,7 @@
         function isHTMLResponse(dataRows) {
             if (!Array.isArray(dataRows) || dataRows.length === 0) return false;
             const sample = dataRows[0];
-            const text = Array.isArray(sample)
-                ? sample.join(' ').toLowerCase()
-                : Object.values(sample).join(' ').toLowerCase();
+            const text = Array.isArray(sample) ? sample.join(' ').toLowerCase() : Object.values(sample).join(' ').toLowerCase();
             return /<html|<!doctype|google drive|errormessage|cannot open file|ไม่สามารถเปิดไฟล์ได้ในเวลานี้/.test(text);
         }
 
@@ -546,26 +644,15 @@
                 const normalizedExclude = exclude.map(e => normalize(e));
                 let found = aliases.map(a => exactName(a)).find(h => h);
                 if (found) return found;
-                found = fields.find(h => {
-                    const header = normalize(h);
-                    return aliases.some(alias => header === normalize(alias)) && !normalizedExclude.some(ex => header.includes(ex));
-                });
+                found = fields.find(h => { const header = normalize(h); return aliases.some(alias => header === normalize(alias)) && !normalizedExclude.some(ex => header.includes(ex)); });
                 if (found) return found;
-                found = fields.find(h => {
-                    const header = normalize(h);
-                    return aliases.some(alias => header.includes(normalize(alias))) && !normalizedExclude.some(ex => header.includes(ex));
-                });
+                found = fields.find(h => { const header = normalize(h); return aliases.some(alias => header.includes(normalize(alias))) && !normalizedExclude.some(ex => header.includes(ex)); });
                 if (found) return found;
                 if (sampleRow) {
-                    found = fields.find(h => {
-                        const sampleValue = normalize(sampleRow[h]);
-                        return aliases.some(alias => sampleValue.includes(normalize(alias))) && !normalizedExclude.some(ex => sampleValue.includes(ex));
-                    });
+                    found = fields.find(h => { const sampleValue = normalize(sampleRow[h]); return aliases.some(alias => sampleValue.includes(normalize(alias))) && !normalizedExclude.some(ex => sampleValue.includes(ex)); });
                 }
                 return found || '';
             };
-
-            // Known Sheet 2 header names should be matched exactly.
             openTradeColumnMapping.time = findHeader(['In Time', 'Open Time', 'Time', 'Date', 'Timestamp']);
             openTradeColumnMapping.status = findHeader(['Status', 'Position Status']);
             openTradeColumnMapping.symbol = findHeader(['Symbol', 'Pair', 'Market', 'Asset']);
@@ -578,23 +665,11 @@
             openTradeColumnMapping.commission = findHeader(['Commission', 'Comm']);
             openTradeColumnMapping.swap = findHeader(['Swap']);
             openTradeColumnMapping.profit = findHeader(['Profit', 'P&L', 'PnL', 'Gain', 'Net'], ['Take Profit']);
-
-            // Enforce exact Sheet 2 headers if present in the published feed.
-            if (fields.some(h => normalize(h) === 'current price')) {
-                openTradeColumnMapping.currentPrice = fields.find(h => normalize(h) === 'current price');
-            }
-            if (fields.some(h => normalize(h) === 'profit')) {
-                openTradeColumnMapping.profit = fields.find(h => normalize(h) === 'profit');
-            }
-            if (fields.some(h => normalize(h) === 'in price')) {
-                openTradeColumnMapping.openPrice = fields.find(h => normalize(h) === 'in price');
-            }
-            if (fields.some(h => normalize(h) === 'take profit price')) {
-                openTradeColumnMapping.takeProfit = fields.find(h => normalize(h) === 'take profit price');
-            }
-            if (fields.some(h => normalize(h) === 'stop loss price')) {
-                openTradeColumnMapping.stopLoss = fields.find(h => normalize(h) === 'stop loss price');
-            }
+            if (fields.some(h => normalize(h) === 'current price')) openTradeColumnMapping.currentPrice = fields.find(h => normalize(h) === 'current price');
+            if (fields.some(h => normalize(h) === 'profit')) openTradeColumnMapping.profit = fields.find(h => normalize(h) === 'profit');
+            if (fields.some(h => normalize(h) === 'in price')) openTradeColumnMapping.openPrice = fields.find(h => normalize(h) === 'in price');
+            if (fields.some(h => normalize(h) === 'take profit price')) openTradeColumnMapping.takeProfit = fields.find(h => normalize(h) === 'take profit price');
+            if (fields.some(h => normalize(h) === 'stop loss price')) openTradeColumnMapping.stopLoss = fields.find(h => normalize(h) === 'stop loss price');
         }
 
         function formatDuration(ms) {
@@ -604,53 +679,53 @@
             const hours = Math.floor((totalSeconds % 86400) / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
-            return `${String(days).padStart(2, '0')}D:${String(hours).padStart(2, '0')}H:${String(minutes).padStart(2, '0')}M:${String(seconds).padStart(2, '0')}S`;
+            return `${String(days).padStart(2,'0')}D:${String(hours).padStart(2,'0')}H:${String(minutes).padStart(2,'0')}M:${String(seconds).padStart(2,'0')}S`;
+        }
+        function formatDurationMinutes(mins) {
+            if (isNaN(mins) || mins < 0) mins = 0;
+            const d = Math.floor(mins / 1440);
+            const h = Math.floor((mins % 1440) / 60);
+            const m = Math.floor(mins % 60);
+            if (d > 0) return `${d}d ${h}h`;
+            if (h > 0) return `${h}h ${m}m`;
+            return `${m}m`;
         }
 
         function parseOpenTradeDate(value) {
             if (!value) return null;
             let text = String(value).trim();
             text = text.replace(/\./g, '-').replace(/\s+/g, ' ');
-
             const hasTimezone = /([+-]\d{2}:?\d{2}|Z)$/i.test(text);
             let isoText = text;
-            if (!hasTimezone) {
-                isoText = text.replace(' ', 'T') + '+03:00';
-            }
-
+            if (!hasTimezone) isoText = text.replace(' ', 'T') + '+03:00';
             let dt = new Date(isoText);
-            if (isNaN(dt.getTime())) {
-                dt = new Date(text.replace(' ', 'T'));
-            }
+            if (isNaN(dt.getTime())) dt = new Date(text.replace(' ', 'T'));
             return isNaN(dt.getTime()) ? null : dt;
         }
-
         function parseNumberValue(value) {
             if (value === null || value === undefined) return NaN;
             const cleaned = String(value).replace(/\s+/g, '').replace(/,/g, '');
             return parseFloat(cleaned);
         }
-
         function findArrayHeaderIndex(headerRow, aliases) {
             if (!Array.isArray(headerRow)) return -1;
             const lower = headerRow.map(cell => String(cell || '').toLowerCase());
             return lower.findIndex(text => aliases.some(alias => text.includes(alias)));
         }
-
         function detectOpenTradeArrayIndices(headerRow) {
             return {
-                time: findArrayHeaderIndex(headerRow, ['open time', 'time', 'date', 'in time', 'datetime', 'timestamp']),
-                status: findArrayHeaderIndex(headerRow, ['status', 'position status']),
-                symbol: findArrayHeaderIndex(headerRow, ['symbol', 'pair', 'market', 'asset']),
-                type: findArrayHeaderIndex(headerRow, ['type', 'order', 'side', 'action']),
-                volume: findArrayHeaderIndex(headerRow, ['volume', 'size', 'lots']),
-                openPrice: findArrayHeaderIndex(headerRow, ['open price', 'entry price', 'open', 'price in', 'in price', 'open rate']),
-                takeProfit: findArrayHeaderIndex(headerRow, ['take profit', 'tp', 'target', 'target price', 'limit price']),
-                stopLoss: findArrayHeaderIndex(headerRow, ['stop loss', 'sl', 'stoploss', 'stop-loss', 'stop price']),
-                currentPrice: findArrayHeaderIndex(headerRow, ['current price', 'close price', 'price', 'close', 'current', 'market price', 'last price']),
-                commission: findArrayHeaderIndex(headerRow, ['commission', 'comm']),
+                time: findArrayHeaderIndex(headerRow, ['open time','time','date','in time','datetime','timestamp']),
+                status: findArrayHeaderIndex(headerRow, ['status','position status']),
+                symbol: findArrayHeaderIndex(headerRow, ['symbol','pair','market','asset']),
+                type: findArrayHeaderIndex(headerRow, ['type','order','side','action']),
+                volume: findArrayHeaderIndex(headerRow, ['volume','size','lots']),
+                openPrice: findArrayHeaderIndex(headerRow, ['open price','entry price','open','price in','in price','open rate']),
+                takeProfit: findArrayHeaderIndex(headerRow, ['take profit','tp','target','target price','limit price']),
+                stopLoss: findArrayHeaderIndex(headerRow, ['stop loss','sl','stoploss','stop-loss','stop price']),
+                currentPrice: findArrayHeaderIndex(headerRow, ['current price','close price','price','close','current','market price','last price']),
+                commission: findArrayHeaderIndex(headerRow, ['commission','comm']),
                 swap: findArrayHeaderIndex(headerRow, ['swap']),
-                profit: findArrayHeaderIndex(headerRow, ['profit', 'p&l', 'pnl', 'gain', 'net'])
+                profit: findArrayHeaderIndex(headerRow, ['profit','p&l','pnl','gain','net'])
             };
         }
 
@@ -659,9 +734,7 @@
             const tbody = document.getElementById('open-transaction-rows');
             const countEl = document.getElementById('open-trades-count');
             const metricEl = document.getElementById('metric-unrealized-pl');
-            
             if (!tbody) return;
-            
             let trades = [];
             if (!data || data.length === 0) return;
 
@@ -669,43 +742,20 @@
             if (Array.isArray(data[0]) && data[0].some(cell => /symbol|open|close|price|volume|profit|type|commission|swap/i.test(String(cell || '')))) {
                 arrayColumnMap = detectOpenTradeArrayIndices(data[0]);
             }
-
-            let totalVolume = 0;
-            let totalCommission = 0;
-            let totalSwap = 0;
-
-            const getArrayValue = (row, idx, fallback) => {
-                if (typeof idx === 'number' && idx >= 0) {
-                    return String(row[idx] || '').trim();
-                }
-                return String(row[fallback] || '').trim();
-            };
-
+            let totalVolume = 0, totalCommission = 0, totalSwap = 0;
+            const getArrayValue = (row, idx, fallback) => (typeof idx === 'number' && idx >= 0) ? String(row[idx] || '').trim() : String(row[fallback] || '').trim();
             const isOpenPositionRow = (rowObj, statusIdx = -1) => {
                 let status = '';
-                if (statusIdx >= 0 && Array.isArray(rowObj)) {
-                    status = String(rowObj[statusIdx] || '').trim();
-                }
-                if (!status && rowObj && typeof rowObj === 'object') {
-                    status = String(rowObj[openTradeColumnMapping.status] || rowObj['Status'] || '').trim();
-                }
+                if (statusIdx >= 0 && Array.isArray(rowObj)) status = String(rowObj[statusIdx] || '').trim();
+                if (!status && rowObj && typeof rowObj === 'object') status = String(rowObj[openTradeColumnMapping.status] || rowObj['Status'] || '').trim();
                 if (!status) return true;
                 status = status.toLowerCase();
-                return ['unrealized', 'open', 'active', 'running'].includes(status);
+                return ['unrealized','open','active','running'].includes(status);
             };
 
             data.forEach((row, rowIndex) => {
-                let time = '';
-                let symbol = '';
-                let type = '';
-                let volume = '';
-                let openPrice = '';
-                let takeProfit = '';
-                let stopLoss = '';
-                let currentPrice = '';
-                let commission = 0;
-                let swap = 0;
-                let profitValue = 0;
+                let time = '', symbol = '', type = '', volume = '', openPrice = '', takeProfit = '', stopLoss = '', currentPrice = '';
+                let commission = 0, swap = 0, profitValue = 0;
                 let isArrayRow = Array.isArray(row);
 
                 if (isArrayRow) {
@@ -725,24 +775,14 @@
                         profitValue = parseNumberValue(getArrayValue(row, arrayColumnMap.profit, 10)) || 0;
                     } else {
                         if (rowIndex === 0 && (String(row[3] || '').toLowerCase().includes('symbol') || !row[1])) return;
-                        time = String(row[1] || '').trim();
-                        symbol = String(row[3] || '').trim();
-                        type = String(row[4] || '').trim();
-                        volume = String(row[5] || '').trim();
-                        openPrice = String(row[6] || '').trim();
-                        currentPrice = String(row[7] || '').trim();
-                        takeProfit = String(row[8] || '').trim();
-                        stopLoss = String(row[9] || '').trim();
-                        profitValue = parseNumberValue(row[10] || '0') || 0;
-                        commission = parseNumberValue(row[11] || '0') || 0;
-                        swap = parseNumberValue(row[12] || '0') || 0;
+                        time = String(row[1] || '').trim(); symbol = String(row[3] || '').trim(); type = String(row[4] || '').trim();
+                        volume = String(row[5] || '').trim(); openPrice = String(row[6] || '').trim(); currentPrice = String(row[7] || '').trim();
+                        takeProfit = String(row[8] || '').trim(); stopLoss = String(row[9] || '').trim();
+                        profitValue = parseNumberValue(row[10] || '0') || 0; commission = parseNumberValue(row[11] || '0') || 0; swap = parseNumberValue(row[12] || '0') || 0;
                     }
                 } else {
                     symbol = String(row[openTradeColumnMapping.symbol] || row['Symbol'] || '').trim();
-                    if (!symbol) {
-                        if (rowIndex === 0) return;
-                        symbol = String(row[3] || '').trim();
-                    }
+                    if (!symbol) { if (rowIndex === 0) return; symbol = String(row[3] || '').trim(); }
                     if (!isOpenPositionRow(row)) return;
                     time = String(row[openTradeColumnMapping.time] || row['In Time'] || row['Time'] || row['Date'] || '').trim();
                     type = String(row[openTradeColumnMapping.type] || row['Type'] || row['Action'] || '').trim();
@@ -767,91 +807,71 @@
                 trades.push({ time, symbol, type, volume, openPrice, takeProfit, stopLoss, currentPrice, commission, swap, profit: profitValue, openDateObj, holdingMs });
             });
 
-            // Store globally for use in metrics calculations
             totalUnrealizedPL = totalUnrealized;
-
             countEl.textContent = `${trades.length} Active`;
-            metricEl.textContent = (totalUnrealized >= 0 ? '$' : '-$') + Math.abs(totalUnrealized).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             metricEl.className = `text-2xl sm:text-3xl font-black mt-1 ${totalUnrealized >= 0 ? 'text-amber-400' : 'text-rose-400'}`;
 
-            // Re-render metrics and chart with updated unrealized P/L
-            if (mappedTransactions.length > 0) {
-                processPortfolio();
+            // Light-weight recompute of the top cards only (cheap, safe for 1s cadence)
+            if (processedList.length > 0) {
+                updateDashboardMetrics(processedList, cachedTotalDeposits, cachedTotalWithdrawals);
             }
 
             tbody.innerHTML = '';
             if (trades.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">No open positions detected.</td></tr>`;
-                return;
-            }
+            } else {
+                trades.forEach(t => {
+                    const gainPercent = (!isNaN(latestPortfolioBalance) && latestPortfolioBalance !== 0) ? (t.profit / latestPortfolioBalance) * 100 : 0;
+                    const gainDisplay = latestPortfolioBalance && !isNaN(latestPortfolioBalance) ? `${gainPercent >= 0 ? '+' : ''}${gainPercent.toFixed(2)}%` : '—';
+                    const holdingText = formatDuration(t.holdingMs);
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-zinc-900/60 transition-colors";
+                    row.innerHTML = `
+                        <td class="px-4 py-2 text-slate-400 font-mono text-[11px] col-open-time">${t.time}</td>
+                        <td class="px-4 py-2 text-slate-200 font-bold col-symbol">${t.symbol}</td>
+                        <td class="px-4 py-2 col-type"><span class="text-[10px] font-bold uppercase ${t.type.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-rose-400'}">${t.type}</span></td>
+                        <td class="px-4 py-2 text-right font-mono text-[11px] col-volume">${t.volume}</td>
+                        <td class="px-4 py-2 text-right font-mono text-[11px] col-open-price">${t.openPrice || '—'}</td>
+                        <td class="px-4 py-2 text-right font-mono text-[11px] col-tp">${t.takeProfit || '—'}</td>
+                        <td class="px-4 py-2 text-right font-mono text-[11px] col-sl">${t.stopLoss || '—'}</td>
+                        <td class="px-4 py-2 text-right font-mono text-[11px] col-current-price">${t.currentPrice || '—'}</td>
+                        <td class="px-4 py-2 text-right font-bold ${gainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'} col-gain">${gainDisplay}</td>
+                        <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px] col-commission">$${parseFloat(t.commission || 0).toFixed(2)}</td>
+                        <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px] col-swap">$${parseFloat(t.swap || 0).toFixed(2)}</td>
+                        <td class="px-4 py-2 text-right font-bold ${t.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'} col-profit">${t.profit >= 0 ? '+' : ''}$${t.profit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                        <td class="px-4 py-2 text-right font-mono text-[11px] col-holding">${holdingText}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
 
-            trades.forEach(t => {
-                const gainPercent = (!isNaN(latestPortfolioBalance) && latestPortfolioBalance !== 0)
-                    ? (t.profit / latestPortfolioBalance) * 100
-                    : 0;
-                const gainDisplay = latestPortfolioBalance && !isNaN(latestPortfolioBalance)
-                    ? `${gainPercent >= 0 ? '+' : ''}${gainPercent.toFixed(2)}%`
-                    : '—';
-                const holdingText = formatDuration(t.holdingMs);
-                const row = document.createElement('tr');
-                row.className = "hover:bg-zinc-900/60 transition-colors";
-                row.innerHTML = `
-                    <td class="px-4 py-2 text-slate-400 font-mono text-[11px] col-open-time">${t.time}</td>
-                    <td class="px-4 py-2 text-slate-200 font-bold col-symbol">${t.symbol}</td>
-                    <td class="px-4 py-2 col-type">
-                        <span class="text-[10px] font-bold uppercase ${t.type.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-rose-400'}">${t.type}</span>
-                    </td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px] col-volume">${t.volume}</td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px] col-open-price">${t.openPrice || '—'}</td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px] col-tp">${t.takeProfit || '—'}</td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px] col-sl">${t.stopLoss || '—'}</td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px] col-current-price">${t.currentPrice || '—'}</td>
-                    <td class="px-4 py-2 text-right font-bold ${gainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'} col-gain">${gainDisplay}</td>
-                    <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px] col-commission">$${parseFloat(t.commission || 0).toFixed(2)}</td>
-                    <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px] col-swap">$${parseFloat(t.swap || 0).toFixed(2)}</td>
-                    <td class="px-4 py-2 text-right font-bold ${t.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'} col-profit">
-                        ${t.profit >= 0 ? '+' : ''}$${t.profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                    </td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px] col-holding">${holdingText}</td>
+                const totalGainPercent = (!isNaN(latestPortfolioBalance) && latestPortfolioBalance !== 0) ? (totalUnrealized / latestPortfolioBalance) * 100 : NaN;
+                const totalGainDisplay = !isNaN(totalGainPercent) ? `${totalGainPercent >= 0 ? '+' : ''}${totalGainPercent.toFixed(2)}%` : '—';
+                if (metricEl) {
+                    const plText = !isNaN(totalGainPercent)
+                        ? `${(totalUnrealized >= 0 ? '+' : '-')}$${Math.abs(totalUnrealized).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${totalGainPercent >= 0 ? '+' : ''}${totalGainPercent.toFixed(2)}%)`
+                        : `${(totalUnrealized >= 0 ? '+' : '-')}$${Math.abs(totalUnrealized).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+                    metricEl.textContent = plText;
+                }
+
+                const summaryRow = document.createElement('tr');
+                summaryRow.className = "bg-zinc-900/80 text-slate-200 font-semibold border-t border-zinc-800";
+                summaryRow.innerHTML = `
+                    <td class="px-4 py-3 text-slate-300" colspan="3">Open Position Summary</td>
+                    <td class="px-4 py-3 text-right font-mono text-[11px]">${totalVolume > 0 ? totalVolume.toFixed(2) : '—'}</td>
+                    <td class="px-4 py-3"></td><td class="px-4 py-3"></td><td class="px-4 py-3"></td><td class="px-4 py-3"></td>
+                    <td class="px-4 py-3 text-right font-bold ${totalGainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${totalGainDisplay}</td>
+                    <td class="px-4 py-3 text-right font-mono text-[11px]">$${totalCommission.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono text-[11px]">$${totalSwap.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-bold ${totalUnrealized >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${totalUnrealized >= 0 ? '+' : ''}$${totalUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                    <td class="px-4 py-3"></td>
                 `;
-                tbody.appendChild(row);
-            });
-
-            const totalGainPercent = (!isNaN(latestPortfolioBalance) && latestPortfolioBalance !== 0)
-                ? (totalUnrealized / latestPortfolioBalance) * 100
-                : NaN;
-            const totalGainDisplay = !isNaN(totalGainPercent)
-                ? `${totalGainPercent >= 0 ? '+' : ''}${totalGainPercent.toFixed(2)}%`
-                : '—';
-
-            // Unrealized P/L box needs: $xx.xx (xx.xx%)
-            if (metricEl) {
-                const plText = !isNaN(totalGainPercent)
-                    ? `${(totalUnrealized >= 0 ? '+' : '-')}$${Math.abs(totalUnrealized).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${totalGainPercent >= 0 ? '+' : ''}${totalGainPercent.toFixed(2)}%)`
-                    : `${(totalUnrealized >= 0 ? '+' : '-')}$${Math.abs(totalUnrealized).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                metricEl.textContent = plText;
+                tbody.appendChild(summaryRow);
             }
-
-
-            const summaryRow = document.createElement('tr');
-            summaryRow.className = "bg-zinc-900/80 text-slate-200 font-semibold border-t border-zinc-800";
-            summaryRow.innerHTML = `
-                <td class="px-4 py-3 text-slate-300" colspan="3">Open Position Summary</td>
-                <td class="px-4 py-3 text-right font-mono text-[11px]">${totalVolume > 0 ? totalVolume.toFixed(2) : '—'}</td>
-                <td class="px-4 py-3"></td>
-                <td class="px-4 py-3"></td>
-                <td class="px-4 py-3"></td>
-                <td class="px-4 py-3"></td>
-                <td class="px-4 py-3 text-right font-bold ${totalGainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${totalGainDisplay}</td>
-                <td class="px-4 py-3 text-right font-mono text-[11px]">$${totalCommission.toFixed(2)}</td>
-                <td class="px-4 py-3 text-right font-mono text-[11px]">$${totalSwap.toFixed(2)}</td>
-                <td class="px-4 py-3 text-right font-bold ${totalUnrealized >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${totalUnrealized >= 0 ? '+' : ''}$${totalUnrealized.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                <td class="px-4 py-3"></td>
-            `;
-            tbody.appendChild(summaryRow);
         }
 
-        // CSV Downloader & Parser
+        // ============================================================
+        // CSV FETCH & PARSE (closed trade history — full 15s poll)
+        // ============================================================
         function getPortfolioChecksum(data) {
             if (!Array.isArray(data)) return '';
             const count = data.length;
@@ -861,153 +881,79 @@
         }
 
         function fetchAndParseCSV(forceUpdate = false) {
-            const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?output=csv&t=${Date.now()}`;
-
-            Papa.parse(url, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    if (results.errors.length > 0 && results.data.length === 0) {
-                        return;
-                    }
-
-                    const newChecksum = getPortfolioChecksum(results.data);
-                    if (!forceUpdate && portfolioDataChecksum && portfolioDataChecksum === newChecksum) {
-                        return;
-                    }
-                    portfolioDataChecksum = newChecksum;
-                    rawCSVData = results.data;
-                    autoDetectAndMapColumns(results.meta.fields);
-                    processPortfolio();
-                },
-                error: function(err) {
-                }
-            });
+            if (isFetchingPortfolio) return;
+            isFetchingPortfolio = true;
+            fetchSheetCsv(SPREADSHEET_ID, '', function (results) {
+                isFetchingPortfolio = false;
+                if (results.errors.length > 0 && results.data.length === 0) return;
+                const newChecksum = getPortfolioChecksum(results.data);
+                if (!forceUpdate && portfolioDataChecksum && portfolioDataChecksum === newChecksum) return;
+                portfolioDataChecksum = newChecksum;
+                rawCSVData = results.data;
+                autoDetectAndMapColumns(results.meta.fields);
+                processPortfolio();
+            }, function (err) {
+                isFetchingPortfolio = false;
+                console.warn('Portfolio feed connection error', err);
+            }, LEGACY_SPREADSHEET_ID);
         }
 
-        // Auto-detect columns prioritising close time
         function autoDetectAndMapColumns(headers) {
             if (!headers || headers.length === 0) return;
-
-            const timeCols = headers.filter(h => {
-                const l = h.toLowerCase();
-                return l.includes('time') || l.includes('date') || l.includes('timestamp') || l === 'open' || l === 'close';
-            });
-
-            // 1. Detect Close Date (Realization)
-            columnMapping.date = headers.find(h => {
-                const l = h.toLowerCase();
-                return (l.includes('close') && (l.includes('time') || l.includes('date'))) || (l === 'close');
-            });
-
-            // 2. Detect Open Date
-            columnMapping.openDate = headers.find(h => {
-                const l = h.toLowerCase();
-                return (l.includes('open') && (l.includes('time') || l.includes('date'))) || (l === 'open');
-            });
-
-            // 3. Heuristic for multiple ambiguous time headers (e.g. Column B and C both named "Time")
+            const timeCols = headers.filter(h => { const l = h.toLowerCase(); return l.includes('time') || l.includes('date') || l.includes('timestamp') || l === 'open' || l === 'close'; });
+            columnMapping.date = headers.find(h => { const l = h.toLowerCase(); return (l.includes('close') && (l.includes('time') || l.includes('date'))) || (l === 'close'); });
+            columnMapping.openDate = headers.find(h => { const l = h.toLowerCase(); return (l.includes('open') && (l.includes('time') || l.includes('date'))) || (l === 'open'); });
             if (timeCols.length >= 2) {
                 if (!columnMapping.openDate) columnMapping.openDate = timeCols[0];
                 if (!columnMapping.date) columnMapping.date = timeCols[timeCols.length - 1];
             }
-
-            // 4. Final safety fallbacks
             if (!columnMapping.date) columnMapping.date = timeCols[0] || headers[0];
             if (!columnMapping.openDate) columnMapping.openDate = columnMapping.date;
-
-            columnMapping.profit = headers.find(h => {
-                const lower = h.toLowerCase();
-                return lower.includes('profit') || lower.includes('p&l') || lower.includes('pnl') || lower.includes('gain') || lower.includes('net p');
-            }) || headers.find(h => h.toLowerCase().includes('amount')) || headers[1];
-
-            columnMapping.balance = headers.find(h => {
-                const lower = h.toLowerCase();
-                return lower.includes('balance') || lower.includes('equity');
-            }) || '';
-
-            columnMapping.type = headers.find(h => {
-                const lower = h.toLowerCase();
-                return lower.includes('type') || lower.includes('comment') || lower.includes('action');
-            }) || '';
-
-            // New detailed columns
-            columnMapping.symbol = headers.find(h => {
-                const l = h.toLowerCase();
-                return l.includes('symbol') || l.includes('item') || l.includes('pair') || l.includes('market');
-            }) || '';
-
-            columnMapping.volume = headers.find(h => {
-                const l = h.toLowerCase();
-                return l.includes('volume') || l.includes('size') || l.includes('lots');
-            }) || '';
-
+            columnMapping.profit = headers.find(h => { const l = h.toLowerCase(); return l.includes('profit') || l.includes('p&l') || l.includes('pnl') || l.includes('gain') || l.includes('net p'); }) || headers.find(h => h.toLowerCase().includes('amount')) || headers[1];
+            columnMapping.balance = headers.find(h => { const l = h.toLowerCase(); return l.includes('balance') || l.includes('equity'); }) || '';
+            columnMapping.type = headers.find(h => { const l = h.toLowerCase(); return l.includes('type') || l.includes('comment') || l.includes('action'); }) || '';
+            columnMapping.symbol = headers.find(h => { const l = h.toLowerCase(); return l.includes('symbol') || l.includes('item') || l.includes('pair') || l.includes('market'); }) || '';
+            columnMapping.volume = headers.find(h => { const l = h.toLowerCase(); return l.includes('volume') || l.includes('size') || l.includes('lots'); }) || '';
             const priceCols = headers.filter(h => h.toLowerCase().includes('price'));
-            if (priceCols.length >= 2) {
-                columnMapping.openPrice = priceCols[0];
-                columnMapping.closePrice = priceCols[priceCols.length - 1];
-            } else {
-                columnMapping.openPrice = priceCols[0] || '';
-                columnMapping.closePrice = priceCols[0] || '';
-            }
-
+            if (priceCols.length >= 2) { columnMapping.openPrice = priceCols[0]; columnMapping.closePrice = priceCols[priceCols.length - 1]; }
+            else { columnMapping.openPrice = priceCols[0] || ''; columnMapping.closePrice = priceCols[0] || ''; }
             columnMapping.magic = headers.find(h => h.toLowerCase().includes('magic')) || '';
         }
 
-        // Portfolio Engine with standard Myfxbook mathematics
+        // ============================================================
+        // CORE PORTFOLIO ENGINE (Myfxbook-style TWR bookkeeping)
+        // ============================================================
         function processPortfolio() {
             if (rawCSVData.length === 0) return;
 
-            mappedTransactions = [];
+            let mappedTransactions = [];
             const headers = Object.keys(rawCSVData[0]);
-
-            // Locate Swaps and Commission columns if present
             const commissionHeader = headers.find(h => h.toLowerCase().includes('commission') || h.toLowerCase().includes('comm'));
             const swapHeader = headers.find(h => h.toLowerCase().includes('swap'));
             const taxesHeader = headers.find(h => h.toLowerCase().includes('tax'));
-            
-            // Clean and prepare raw rows
+
             rawCSVData.forEach((row, idx) => {
                 let rawDateStr = (row[columnMapping.date] || '').trim();
                 let rawOpenDateStr = (row[columnMapping.openDate] || '').trim();
-                
-                // MT4/MT5 Balance operations often have empty Close Time. 
-                // If realization is missing, we treat the Open Time as the event time.
-                if (!rawDateStr && rawOpenDateStr) {
-                    rawDateStr = rawOpenDateStr;
-                }
-                
-                // If mapping fails, try hardcoded fallbacks
-                if (!rawOpenDateStr) {
-                    rawOpenDateStr = (row['Open Time'] || row['Open Date'] || row['Time'] || row['Date'] || rawDateStr).trim();
-                }
+                if (!rawDateStr && rawOpenDateStr) rawDateStr = rawOpenDateStr;
+                if (!rawOpenDateStr) rawOpenDateStr = (row['Open Time'] || row['Open Date'] || row['Time'] || row['Date'] || rawDateStr).trim();
 
-                // Robust date parsing for platforms using dot notation or non-standard ISO formats
                 const parseRobust = (s) => {
                     if (!s) return new Date(NaN);
-                    // Standardize separators for cross-browser compatibility
                     let clean = String(s).replace(/\./g, '-');
                     let obj = new Date(clean);
-                    if (isNaN(obj.getTime())) {
-                        // Fallback for Safari/Mobile which requires 'T' separator
-                        obj = new Date(clean.replace(' ', 'T'));
-                    }
+                    if (isNaN(obj.getTime())) obj = new Date(clean.replace(' ', 'T'));
                     return obj;
                 };
 
                 let profitVal = parseFloat((row[columnMapping.profit] || '0').replace(/[^0-9.-]/g, ''));
                 let balanceVal = columnMapping.balance ? parseFloat((row[columnMapping.balance] || '0').replace(/[^0-9.-]/g, '')) : NaN;
                 let typeStr = columnMapping.type ? (row[columnMapping.type] || '') : '';
-
-                // Extract detailed trade data
                 let symbolVal = columnMapping.symbol ? (row[columnMapping.symbol] || '') : '';
                 let volumeVal = columnMapping.volume ? parseFloat((row[columnMapping.volume] || '0').replace(/[^0-9.]/g, '')) : 0;
                 let openPriceVal = columnMapping.openPrice ? parseFloat((row[columnMapping.openPrice] || '0').replace(/[^0-9.]/g, '')) : 0;
                 let closePriceVal = columnMapping.closePrice ? parseFloat((row[columnMapping.closePrice] || '0').replace(/[^0-9.]/g, '')) : 0;
                 let magicVal = columnMapping.magic ? (row[columnMapping.magic] || '') : '';
-
-                // MT4/MT5 Commissions and Swaps subtraction
                 let commissionVal = commissionHeader ? parseFloat((row[commissionHeader] || '0').replace(/[^0-9.-]/g, '')) : 0;
                 let swapVal = swapHeader ? parseFloat((row[swapHeader] || '0').replace(/[^0-9.-]/g, '')) : 0;
                 let taxesVal = taxesHeader ? parseFloat((row[taxesHeader] || '0').replace(/[^0-9.-]/g, '')) : 0;
@@ -1017,216 +963,110 @@
                 if (isNaN(commissionVal)) commissionVal = 0;
                 if (isNaN(swapVal)) swapVal = 0;
                 if (isNaN(taxesVal)) taxesVal = 0;
-
                 if (!rawDateStr && profitVal === 0 && isNaN(balanceVal)) return;
 
                 let dateObj = parseRobust(rawDateStr);
-                if (isNaN(dateObj.getTime())) {
-                    // Only skip if both the realization and open dates are unparseable
-                    return;
-                }
+                if (isNaN(dateObj.getTime())) return;
                 let openDateObj = parseRobust(rawOpenDateStr);
 
-                // Scan rows for keywords identifying funding events (Deposits & Withdrawals)
                 let isFunding = false;
                 let rowValuesString = Object.values(row).map(v => String(v).toLowerCase()).join(' | ');
-                
-                const fundingKeywords = [
-                    'deposit', 'withdraw', 'withdrawal', 'credit', 'transfer', 'funding', 
-                    'payout', 'pay-out', 'w/d', 'dep', 'with', 'bonus', 'rebate', 
-                    'adjustment', 'payout'
-                ];
-                
-                if (fundingKeywords.some(kw => rowValuesString.includes(kw))) {
-                    isFunding = true;
-                }
-
-                // Double check MT4 Comments / Actions directly
+                const fundingKeywords = ['deposit','withdraw','withdrawal','credit','transfer','funding','payout','pay-out','w/d','dep','with','bonus','rebate','adjustment'];
+                if (fundingKeywords.some(kw => rowValuesString.includes(kw))) isFunding = true;
                 for (let key in row) {
                     if (row.hasOwnProperty(key)) {
                         let val = String(row[key]).trim().toLowerCase();
-                        if (val === 'balance' || val === 'deposit' || val === 'withdrawal' || val === 'with' || val === 'dep') {
-                            isFunding = true;
-                        }
+                        if (val === 'balance' || val === 'deposit' || val === 'withdrawal' || val === 'with' || val === 'dep') isFunding = true;
                     }
                 }
-
-                // Verification of Asset Symbols: Lack of symbol confirms funding event
-                let symbolHeader = headers.find(h => {
-                    const lower = h.toLowerCase();
-                    return lower.includes('symbol') || lower.includes('item') || lower.includes('pair') || lower.includes('market');
-                });
+                let symbolHeader = headers.find(h => { const l = h.toLowerCase(); return l.includes('symbol') || l.includes('item') || l.includes('pair') || l.includes('market'); });
                 if (symbolHeader) {
                     let symVal = String(row[symbolHeader]).trim().toLowerCase();
-                    if (!symVal || symVal === '0' || symVal === 'balance' || symVal === 'deposit' || symVal === 'withdrawal') {
-                        isFunding = true;
-                    }
+                    if (!symVal || symVal === '0' || symVal === 'balance' || symVal === 'deposit' || symVal === 'withdrawal') isFunding = true;
                 }
-
-                let sizeHeader = headers.find(h => {
-                    const lower = h.toLowerCase();
-                    return lower.includes('size') || lower.includes('volume') || lower.includes('lots');
-                });
+                let sizeHeader = headers.find(h => { const l = h.toLowerCase(); return l.includes('size') || l.includes('volume') || l.includes('lots'); });
                 if (sizeHeader) {
                     let sizeVal = parseFloat(String(row[sizeHeader]).replace(/[^0-9.]/g, ''));
-                    if (isNaN(sizeVal) || sizeVal === 0) {
-                        isFunding = true;
-                    }
+                    if (isNaN(sizeVal) || sizeVal === 0) isFunding = true;
                 }
 
                 mappedTransactions.push({
-                    index: idx, // CRITICAL FIX: Store original spreadsheet sequence index for stable sorting tie-breakers
-                    rawDate: rawDateStr,
-                    date: dateObj,
-                    rawOpenDate: rawOpenDateStr,
-                    openDate: openDateObj,
-                    symbol: symbolVal,
-                    volume: volumeVal,
-                    openPrice: openPriceVal,
-                    closePrice: closePriceVal,
-                    magic: magicVal,
-                    profit: profitVal,
-                    commission: commissionVal,
-                    swap: swapVal,
-                    taxes: taxesVal,
-                    providedBalance: balanceVal,
-                    type: typeStr,
-                    isFunding: isFunding,
-                    rawRow: row
+                    index: idx, rawDate: rawDateStr, date: dateObj, rawOpenDate: rawOpenDateStr, openDate: openDateObj,
+                    symbol: symbolVal, volume: volumeVal, openPrice: openPriceVal, closePrice: closePriceVal, magic: magicVal,
+                    profit: profitVal, commission: commissionVal, swap: swapVal, taxes: taxesVal, providedBalance: balanceVal,
+                    type: typeStr, isFunding: isFunding, rawRow: row
                 });
             });
 
-            // CRITICAL FIX: Sort strictly by Close Time (realization timestamp) and resolve identical ties via spreadsheet index
             mappedTransactions.sort((a, b) => {
-                if (a.date.getTime() !== b.date.getTime()) {
-                    return a.date - b.date;
-                }
-                // If timestamps are identical, put deposits/withdrawals first
+                if (a.date.getTime() !== b.date.getTime()) return a.date - b.date;
                 if (a.isFunding && !b.isFunding) return -1;
                 if (!a.isFunding && b.isFunding) return 1;
-                // If still tied, use original index to ensure absolute determinism across refreshes
                 return a.index - b.index;
             });
 
-            let currentBalance = 0;
-            let totalDeposits = 0;
-            let totalWithdrawals = 0;
-            let currentCumulativeTWR = 1.0;
-            let currentCumulativeAdditive = 0.0;
-            let processedList = [];
+            let currentBalance = 0, totalDeposits = 0, totalWithdrawals = 0;
+            let currentCumulativeTWR = 1.0, currentCumulativeAdditive = 0.0;
+            let newProcessedList = [];
 
             mappedTransactions.forEach((tx, idx) => {
                 let isDepositOrWithdrawal = tx.isFunding;
-                let prevBalance = idx === 0 ? 0 : processedList[idx - 1].balance;
-
-                // Adjust Profit for trade net metrics (gross profit + commissions + swaps + taxes)
+                let prevBalance = idx === 0 ? 0 : newProcessedList[idx - 1].balance;
                 let netTradeProfit = tx.profit;
-                if (!isDepositOrWithdrawal) {
-                    netTradeProfit = tx.profit + tx.commission + tx.swap + tx.taxes;
-                }
+                if (!isDepositOrWithdrawal) netTradeProfit = tx.profit + tx.commission + tx.swap + tx.taxes;
 
                 if (idx === 0) {
-                    if (!isNaN(tx.providedBalance)) {
-                        currentBalance = tx.providedBalance;
-                    } else {
-                        currentBalance = tx.profit;
-                    }
-                    if (currentBalance >= 0) {
-                        totalDeposits += currentBalance;
-                    } else {
-                        totalWithdrawals += Math.abs(currentBalance);
-                    }
-                    isDepositOrWithdrawal = true; 
+                    currentBalance = !isNaN(tx.providedBalance) ? tx.providedBalance : tx.profit;
+                    if (currentBalance >= 0) totalDeposits += currentBalance; else totalWithdrawals += Math.abs(currentBalance);
+                    isDepositOrWithdrawal = true;
                 } else {
                     if (!isNaN(tx.providedBalance)) {
                         currentBalance = tx.providedBalance;
-                        
                         let balanceDiff = currentBalance - prevBalance;
                         let discrepancy = Math.abs(balanceDiff - netTradeProfit);
-                        
-                        // Flag any unexplained balance gap as funding / deposit / withdrawal
                         if (isDepositOrWithdrawal || discrepancy > 0.01) {
                             isDepositOrWithdrawal = true;
                             let externalFlow = balanceDiff - netTradeProfit;
-                            if (externalFlow !== 0) {
-                                if (externalFlow > 0) {
-                                    totalDeposits += externalFlow;
-                                } else {
-                                    totalWithdrawals += Math.abs(externalFlow);
-                                }
-                            } else {
-                                if (tx.profit >= 0) {
-                                    totalDeposits += tx.profit;
-                                } else {
-                                    totalWithdrawals += Math.abs(tx.profit);
-                                }
-                            }
+                            if (externalFlow !== 0) { if (externalFlow > 0) totalDeposits += externalFlow; else totalWithdrawals += Math.abs(externalFlow); }
+                            else { if (tx.profit >= 0) totalDeposits += tx.profit; else totalWithdrawals += Math.abs(tx.profit); }
                         }
                     } else {
                         currentBalance = prevBalance + netTradeProfit;
-                        if (isDepositOrWithdrawal) {
-                            if (tx.profit >= 0) {
-                                totalDeposits += tx.profit;
-                            } else {
-                                totalWithdrawals += Math.abs(tx.profit);
-                            }
-                        }
+                        if (isDepositOrWithdrawal) { if (tx.profit >= 0) totalDeposits += tx.profit; else totalWithdrawals += Math.abs(tx.profit); }
                     }
                 }
 
-                // Balance before the trade was closed
                 let balanceBeforeTrade = currentBalance - netTradeProfit;
                 let tradeReturnPercent = 0;
-
-                // Perform calculations for BOTH systems side-by-side
                 if (!isDepositOrWithdrawal && balanceBeforeTrade > 0) {
                     let r = netTradeProfit / balanceBeforeTrade;
-                    
-                    // Individual Trade yield percentage
                     tradeReturnPercent = r * 100;
-                    
-                    // Geometric compounded TWR
                     currentCumulativeTWR *= (1.0 + r);
-                    
-                    // Additive arithmetical sum
                     currentCumulativeAdditive += (r * 100);
                 }
+                let currentGainPercent = gainCalculationMethod === 'additive' ? currentCumulativeAdditive : (currentCumulativeTWR - 1.0) * 100;
 
-                // Determine active display metric based on user configuration
-                let currentGainPercent = gainCalculationMethod === 'additive' 
-                    ? currentCumulativeAdditive 
-                    : (currentCumulativeTWR - 1.0) * 100;
-
-                processedList.push({
-                    date: tx.date,
-                    rawDate: tx.rawDate,
-                    openDate: tx.openDate,
-                    rawOpenDate: tx.rawOpenDate,
-                    symbol: tx.symbol,
-                    volume: tx.volume,
-                    openPrice: tx.openPrice,
-                    closePrice: tx.closePrice,
-                    magic: tx.magic,
-                    commission: tx.commission,
-                    swap: tx.swap,
-                    profit: tx.profit, // Display gross profit in Profit column
-                    netProfit: netTradeProfit, // Used for Gain calculations
-                    balance: currentBalance,
-                    gainPercent: currentGainPercent,
-                    tradeReturnPercent: tradeReturnPercent, // Stores trade performance yield
-                    isFunding: isDepositOrWithdrawal,
-                    type: tx.type
+                newProcessedList.push({
+                    date: tx.date, rawDate: tx.rawDate, openDate: tx.openDate, rawOpenDate: tx.rawOpenDate,
+                    symbol: tx.symbol, volume: tx.volume, openPrice: tx.openPrice, closePrice: tx.closePrice, magic: tx.magic,
+                    commission: tx.commission, swap: tx.swap, profit: tx.profit, netProfit: netTradeProfit, balance: currentBalance,
+                    gainPercent: currentGainPercent, tradeReturnPercent: tradeReturnPercent, isFunding: isDepositOrWithdrawal, type: tx.type
                 });
             });
 
-            // Update user views
+            processedList = newProcessedList;
+            cachedTotalDeposits = totalDeposits;
+            cachedTotalWithdrawals = totalWithdrawals;
+
             updateDashboardMetrics(processedList, totalDeposits, totalWithdrawals);
             generateMonthlyReturns(processedList);
             populateHistoryTable(processedList);
             renderChart(processedList);
+
+            // Heavy institutional analytics — only on full 15s refresh, not the 1s open-trade tick
+            computeInstitutionalMetrics(processedList, totalDeposits);
         }
 
-        // Helper for Sharpe Ratio calculation
         function getStandardDeviation(array) {
             const n = array.length;
             if (n < 2) return 0;
@@ -1234,84 +1074,72 @@
             return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / (n - 1));
         }
 
-        // Render metrics to elements
+        // ============================================================
+        // TOP-LEVEL DASHBOARD METRICS (fast, safe to run every 1s)
+        // ============================================================
         function updateDashboardMetrics(list, totalDeposits, totalWithdrawals) {
             if (list.length === 0) return;
-
             const finalRow = list[list.length - 1];
             const finalGain = finalRow.gainPercent;
             const finalBalance = finalRow.balance;
-            
-            // Calculate the additional gain from unrealized P/L
+
             const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
             const unrealizedGainPercent = (totalUnrealizedPL / initialDeposit) * 100;
             const finalGainWithUnrealized = finalGain + unrealizedGainPercent;
             const finalBalanceWithUnrealized = finalBalance + totalUnrealizedPL;
 
-            // Total net profit from transactions + unrealized
             let totalNetProfit = list.reduce((sum, item) => item.isFunding ? sum : sum + item.profit, 0) + totalUnrealizedPL;
-
-            // Calculate Absolute Gain (Abs. Gain) = Net Profit / Total Deposits
             let absGain = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
 
             document.getElementById('metric-twr-gain').textContent = finalGainWithUnrealized.toFixed(2) + '%';
             document.getElementById('metric-abs-gain').textContent = absGain.toFixed(2) + '%';
-            document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined, {maximumFractionDigits: 2});
+            document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+            document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+            document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined,{maximumFractionDigits:2});
             let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
             document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
 
-            // Calculate drawdown including unrealized P/L in all data points
-            let maxDrawdown = 0;
-            let currentDrawdown = 0;
-            let peakGain = -Infinity;
-            
+            let maxDrawdown = 0, peakGain = -Infinity, peakGainWithoutUnrealized = -Infinity;
+            let peakBalance = -Infinity, maxDrawdownCash = 0;
             list.forEach(item => {
                 const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
-                if (gainWithUnrealized > peakGain) {
-                    peakGain = gainWithUnrealized;
-                }
+                if (gainWithUnrealized > peakGain) peakGain = gainWithUnrealized;
+                if (item.gainPercent > peakGainWithoutUnrealized) peakGainWithoutUnrealized = item.gainPercent;
                 const dd = peakGain - gainWithUnrealized;
-                if (dd > maxDrawdown) {
-                    maxDrawdown = dd;
-                }
+                if (dd > maxDrawdown) maxDrawdown = dd;
+                const balWithUnrealized = item.balance + totalUnrealizedPL;
+                if (balWithUnrealized > peakBalance) peakBalance = balWithUnrealized;
+                const ddCash = peakBalance - balWithUnrealized;
+                if (ddCash > maxDrawdownCash) maxDrawdownCash = ddCash;
             });
-            
-            // Current drawdown
+
             const currentGainWithUnrealized = finalGainWithUnrealized;
-            currentDrawdown = peakGain - currentGainWithUnrealized;
-            
+            const peakForCurrent = peakGainWithoutUnrealized;
+            const currentDrawdown = Math.max(0, peakForCurrent - currentGainWithUnrealized);
+
             document.getElementById('metric-max-drawdown').textContent = maxDrawdown.toFixed(2) + '%';
             document.getElementById('metric-current-drawdown').textContent = currentDrawdown.toFixed(2) + '%';
-            if (!isNaN(finalBalanceWithUnrealized)) {
-                latestPortfolioBalance = finalBalanceWithUnrealized;
-            }
+            if (!isNaN(finalBalanceWithUnrealized)) latestPortfolioBalance = finalBalanceWithUnrealized;
+
+            window.__latestMaxDrawdownPercent = maxDrawdown;
+            window.__latestMaxDrawdownCash = maxDrawdownCash;
+            window.__latestNetProfit = totalNetProfit;
+            window.__latestInitialDeposit = initialDeposit;
+            window.__latestFinalBalance = finalBalanceWithUnrealized;
 
             const trades = list.filter(item => !item.isFunding);
             const totalTrades = trades.length;
             const winningTrades = trades.filter(t => t.profit > 0);
             const losingTrades = trades.filter(t => t.profit < 0);
-            
             const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
-            
             let totalWinAmt = winningTrades.reduce((s, t) => s + t.profit, 0);
             let totalLossAmt = Math.abs(losingTrades.reduce((s, t) => s + t.profit, 0));
             const profitFactor = totalLossAmt > 0 ? (totalWinAmt / totalLossAmt) : totalWinAmt > 0 ? Infinity : 0;
-
             const avgWin = winningTrades.length > 0 ? totalWinAmt / winningTrades.length : 0;
             const avgLoss = losingTrades.length > 0 ? totalLossAmt / losingTrades.length : 0;
 
-            let currentStreak = 0;
-            let maxStreak = 0;
-            trades.forEach(t => {
-                if (t.profit > 0) {
-                    currentStreak++;
-                    if (currentStreak > maxStreak) maxStreak = currentStreak;
-                } else if (t.profit < 0) {
-                    currentStreak = 0;
-                }
-            });
+            let currentStreak = 0, maxStreak = 0;
+            trades.forEach(t => { if (t.profit > 0) { currentStreak++; if (currentStreak > maxStreak) maxStreak = currentStreak; } else if (t.profit < 0) currentStreak = 0; });
 
             document.getElementById('stat-total-trades').textContent = totalTrades;
             document.getElementById('stat-win-rate').textContent = winRate.toFixed(1) + '%';
@@ -1320,44 +1148,28 @@
             document.getElementById('stat-avg-loss').textContent = '$' + avgLoss.toFixed(2);
             document.getElementById('stat-consec-wins').textContent = maxStreak;
 
-            // Sharpe Ratio Calculation
-            // 1. Map monthly cumulative gains and track the date range
             const monthlyGainsMap = {};
-            let firstDate = null;
-            let lastDate = null;
-
+            let firstDate = null, lastDate = null;
             list.forEach(item => {
-                const y = item.date.getFullYear();
-                const m = item.date.getMonth();
-                const key = `${y}-${m}`;
+                const y = item.date.getFullYear(), m = item.date.getMonth(), key = `${y}-${m}`;
                 monthlyGainsMap[key] = item.gainPercent;
-                
                 if (!firstDate || item.date < firstDate) firstDate = item.date;
                 if (!lastDate || item.date > lastDate) lastDate = item.date;
             });
-
             if (firstDate && lastDate) {
                 const monthlyReturns = [];
-                let runningGain = 0;
-                let currY = firstDate.getFullYear();
-                let currM = firstDate.getMonth();
-                const stopY = lastDate.getFullYear();
-                const stopM = lastDate.getMonth();
-
-                // Build a continuous monthly sequence (handling months with no trades as 0% return)
+                let runningGain = 0, currY = firstDate.getFullYear(), currM = firstDate.getMonth();
+                const stopY = lastDate.getFullYear(), stopM = lastDate.getMonth();
                 while (currY < stopY || (currY === stopY && currM <= stopM)) {
                     const key = `${currY}-${currM}`;
                     const monthEndGain = monthlyGainsMap.hasOwnProperty(key) ? monthlyGainsMap[key] : runningGain;
                     monthlyReturns.push(monthEndGain - runningGain);
                     runningGain = monthEndGain;
-
-                    currM++;
-                    if (currM > 11) { currM = 0; currY++; }
+                    currM++; if (currM > 11) { currM = 0; currY++; }
                 }
-
-                const rfr = 4.48; // Annual Risk Free Rate (US 10Y)
+                const rfr = ANNUAL_RISK_FREE_RATE;
                 if (monthlyReturns.length > 0) {
-                    const avgMonthly = monthlyReturns.reduce((a, b) => a + b, 0) / monthlyReturns.length;
+                    const avgMonthly = monthlyReturns.reduce((a,b) => a+b, 0) / monthlyReturns.length;
                     const monthlySD = getStandardDeviation(monthlyReturns);
                     const annualReturn = avgMonthly * 12;
                     const annualSD = monthlySD * Math.sqrt(12);
@@ -1367,140 +1179,94 @@
             }
         }
 
-        // Render monthly summary list
+        // ============================================================
+        // MONTHLY RETURN HEATMAP
+        // ============================================================
         function generateMonthlyReturns(list) {
             const tbody = document.getElementById('monthly-heatmap-body');
             if (!tbody) return;
             tbody.innerHTML = '';
-
-            // 1. Reconstruct monthly returns grouped by year
             const monthlyGainsMap = {};
-            let firstDate = null;
-            let lastDate = null;
+            let firstDate = null, lastDate = null;
             list.forEach(item => {
-                const y = item.date.getFullYear();
-                const m = item.date.getMonth();
-                const key = `${y}-${m}`;
+                const y = item.date.getFullYear(), m = item.date.getMonth(), key = `${y}-${m}`;
                 monthlyGainsMap[key] = item.gainPercent;
                 if (!firstDate || item.date < firstDate) firstDate = item.date;
                 if (!lastDate || item.date > lastDate) lastDate = item.date;
             });
-            if (!firstDate || !lastDate) {
-                tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>';
-                return;
-            }
-            
-            const yearsMap = {};
-            let runningGain = 0;
-            let currY = firstDate.getFullYear();
-            let currM = firstDate.getMonth();
-            const stopY = lastDate.getFullYear();
-            const stopM = lastDate.getMonth();
+            if (!firstDate || !lastDate) { tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>'; return; }
 
+            const yearsMap = {};
+            let runningGain = 0, currY = firstDate.getFullYear(), currM = firstDate.getMonth();
+            const stopY = lastDate.getFullYear(), stopM = lastDate.getMonth();
             while (currY < stopY || (currY === stopY && currM <= stopM)) {
                 const key = `${currY}-${currM}`;
                 const monthEndGain = monthlyGainsMap.hasOwnProperty(key) ? monthlyGainsMap[key] : runningGain;
                 if (!yearsMap[currY]) yearsMap[currY] = Array(12).fill(null);
                 yearsMap[currY][currM] = monthEndGain - runningGain;
                 runningGain = monthEndGain;
-                currM++;
-                if (currM > 11) { currM = 0; currY++; }
+                currM++; if (currM > 11) { currM = 0; currY++; }
             }
 
-            // 2. Render years in reverse order
             const sortedYears = Object.keys(yearsMap).sort((a, b) => b - a);
             sortedYears.forEach(year => {
                 const row = document.createElement('tr');
                 row.className = "border-b border-zinc-900/50 hover:bg-zinc-900/30 transition-colors";
                 let annualTotal = 0;
-
                 let html = `<td class="py-3 px-2 text-left font-black text-slate-400 border-r border-zinc-900 bg-black/20 text-[11px]">${year}</td>`;
-                
                 for (let m = 0; m < 12; m++) {
                     const val = yearsMap[year][m];
-                    if (val === null) {
-                        html += `<td class="py-3 px-1 text-center text-zinc-800 border-r border-zinc-900 text-[10px]">—</td>`;
-                    } else {
+                    if (val === null) { html += `<td class="py-3 px-1 text-center text-zinc-800 border-r border-zinc-900 text-[10px]">—</td>`; }
+                    else {
                         annualTotal += val;
                         let cls = 'text-zinc-500';
-                        if (val > 0.001) {
-                            if (val > 5) cls = 'h-pos-4';
-                            else if (val > 2) cls = 'h-pos-3';
-                            else if (val > 0.5) cls = 'h-pos-2';
-                            else cls = 'h-pos-1';
-                        } else if (val < -0.001) {
-                            const a = Math.abs(val);
-                            if (a > 5) cls = 'h-neg-4';
-                            else if (a > 2) cls = 'h-neg-3';
-                            else if (a > 0.5) cls = 'h-neg-2';
-                            else cls = 'h-neg-1';
-                        }
+                        if (val > 0.001) { if (val > 5) cls = 'h-pos-4'; else if (val > 2) cls = 'h-pos-3'; else if (val > 0.5) cls = 'h-pos-2'; else cls = 'h-pos-1'; }
+                        else if (val < -0.001) { const a = Math.abs(val); if (a > 5) cls = 'h-neg-4'; else if (a > 2) cls = 'h-neg-3'; else if (a > 0.5) cls = 'h-neg-2'; else cls = 'h-neg-1'; }
                         html += `<td class="py-3 px-1 text-center border-r border-zinc-900 font-bold text-[10px] ${cls}">${(val > 0 ? '+' : '')}${val.toFixed(2)}</td>`;
                     }
                 }
-
-                // Annual Result column
                 let annCls = 'text-slate-400';
-                if (annualTotal > 0.01) annCls = 'text-emerald-400';
-                else if (annualTotal < -0.01) annCls = 'text-rose-400';
-                
+                if (annualTotal > 0.01) annCls = 'text-emerald-400'; else if (annualTotal < -0.01) annCls = 'text-rose-400';
                 html += `<td class="py-3 px-2 text-right font-black text-[11px] ${annCls}">${(annualTotal > 0 ? '+' : '')}${annualTotal.toFixed(2)}%</td>`;
-                
                 row.innerHTML = html;
                 tbody.appendChild(row);
             });
         }
 
-        // Fill table rows strictly by close dates
+        // ============================================================
+        // TRANSACTION LOG
+        // ============================================================
         function populateHistoryTable(list) {
             const tbody = document.getElementById('transaction-rows');
             const countEl = document.getElementById('history-count');
             tbody.innerHTML = '';
-
             countEl.textContent = `${list.length} Entries`;
             const displayList = [...list].reverse();
-
-            if (displayList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">Awaiting data records...</td></tr>`;
-                return;
-            }
+            if (displayList.length === 0) { tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">Awaiting data records...</td></tr>`; return; }
 
             displayList.forEach(item => {
                 const isFunding = item.isFunding;
-                const isProfitPositive = item.profit >= 0;
-
-                // Calculate Holding Time 00D:00H:00M
                 let holdingTime = "—";
                 if (!isFunding && item.openDate && item.date && !isNaN(item.openDate.getTime()) && !isNaN(item.date.getTime())) {
                     let diffMs = Math.abs(item.date - item.openDate);
-                    let days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                    let hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    let minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                    holdingTime = `${String(days).padStart(2, '0')}D:${String(hours).padStart(2, '0')}H:${String(minutes).padStart(2, '0')}M`;
+                    let days = Math.floor(diffMs / 86400000);
+                    let hours = Math.floor((diffMs % 86400000) / 3600000);
+                    let minutes = Math.floor((diffMs % 3600000) / 60000);
+                    holdingTime = `${String(days).padStart(2,'0')}D:${String(hours).padStart(2,'0')}H:${String(minutes).padStart(2,'0')}M`;
                 }
-
                 let typeBadge = '';
                 if (isFunding) {
-                    typeBadge = item.profit >= 0 
+                    typeBadge = item.profit >= 0
                         ? `<span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Deposit</span>`
                         : `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Withdrawals</span>`;
                 } else {
                     const tType = (item.type || '').toLowerCase();
-                    if (tType.includes('buy') || tType.includes('long')) {
-                        typeBadge = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Long</span>`;
-                    } else if (tType.includes('sell') || tType.includes('short')) {
-                        typeBadge = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Short</span>`;
-                    } else {
-                        typeBadge = `<span class="bg-zinc-800 text-slate-300 border border-zinc-700 px-1.5 py-0.5 rounded text-[10px] font-bold">Trade</span>`;
-                    }
+                    if (tType.includes('buy') || tType.includes('long')) typeBadge = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Long</span>`;
+                    else if (tType.includes('sell') || tType.includes('short')) typeBadge = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Short</span>`;
+                    else typeBadge = `<span class="bg-zinc-800 text-slate-300 border border-zinc-700 px-1.5 py-0.5 rounded text-[10px] font-bold">Trade</span>`;
                 }
-
-                // Show individual trade's performance yield if it is not a funding action
                 let tradeGainText = '-';
-                if (!isFunding) {
-                    const isTradePositive = item.profit >= 0;
-                    tradeGainText = `${isTradePositive ? '+' : ''}${item.tradeReturnPercent.toFixed(2)}%`;
-                }
+                if (!isFunding) tradeGainText = `${item.profit >= 0 ? '+' : ''}${item.tradeReturnPercent.toFixed(2)}%`;
 
                 const row = document.createElement('tr');
                 row.className = "hover:bg-zinc-900/60 transition-colors";
@@ -1510,236 +1276,545 @@
                     <td class="px-4 py-2 text-slate-200 font-bold">${item.symbol || '—'}</td>
                     <td class="px-4 py-2">${typeBadge}</td>
                     <td class="px-4 py-2 text-right font-mono text-[11px]">${item.volume ? item.volume.toFixed(2) : '—'}</td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.openPrice ? item.openPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 5}) : '—'}</td>
-                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.closePrice ? item.closePrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 5}) : '—'}</td>
-                    <td class="px-4 py-2 text-right font-bold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-                        ${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                    </td>
-                    <td class="px-4 py-2 text-right font-bold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-                        ${tradeGainText}
-                    </td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.openPrice ? item.openPrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:5}) : '—'}</td>
+                    <td class="px-4 py-2 text-right font-mono text-[11px]">${item.closePrice ? item.closePrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:5}) : '—'}</td>
+                    <td class="px-4 py-2 text-right font-bold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                    <td class="px-4 py-2 text-right font-bold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${tradeGainText}</td>
                     <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px]">${item.commission ? '$' + item.commission.toFixed(2) : '—'}</td>
                     <td class="px-4 py-2 text-right text-zinc-400 font-mono text-[11px]">${item.swap ? '$' + item.swap.toFixed(2) : '—'}</td>
                     <td class="px-4 py-2 text-right text-zinc-500 font-mono text-[11px]">${item.magic || '—'}</td>
-                    <td class="px-4 py-2 text-right font-mono text-zinc-300 text-[11px]">
-                        ${holdingTime}
-                    </td>
+                    <td class="px-4 py-2 text-right font-mono text-zinc-300 text-[11px]">${holdingTime}</td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
-        // Toggle Active Display Mode
+        // ============================================================
+        // CHART CONTROLS
+        // ============================================================
         function changeChartType(type) {
             activeChartType = type;
             const btnGain = document.getElementById('btn-chart-gain');
             const btnBal = document.getElementById('btn-chart-balance');
-
-            if (type === 'gain') {
-                btnGain.className = "px-3 py-1 text-xs rounded font-medium transition-all bg-emerald-600 text-white shadow";
-                btnBal.className = "px-3 py-1 text-xs rounded font-medium transition-all text-slate-400 hover:text-slate-200";
-            } else {
-                btnBal.className = "px-3 py-1 text-xs rounded font-medium transition-all bg-emerald-600 text-white shadow";
-                btnGain.className = "px-3 py-1 text-xs rounded font-medium transition-all text-slate-400 hover:text-slate-200";
-            }
-
-            if (rawCSVData.length > 0) {
-                processPortfolio();
-            }
+            if (type === 'gain') { btnGain.className = "px-3 py-1 text-xs rounded font-medium transition-all bg-emerald-600 text-white shadow"; btnBal.className = "px-3 py-1 text-xs rounded font-medium transition-all text-slate-400 hover:text-slate-200"; }
+            else { btnBal.className = "px-3 py-1 text-xs rounded font-medium transition-all bg-emerald-600 text-white shadow"; btnGain.className = "px-3 py-1 text-xs rounded font-medium transition-all text-slate-400 hover:text-slate-200"; }
+            if (processedList.length > 0) renderChart(processedList);
         }
-
-        // Toggle Period Mode
         function changePeriodMode(mode) {
             activePeriodMode = mode;
-            const buttons = ['trade', 'daily', 'monthly', 'yearly'];
-            
-            buttons.forEach(btn => {
+            ['trade','daily','monthly','yearly'].forEach(btn => {
                 const el = document.getElementById(`btn-period-${btn}`);
-                if (btn === mode) {
-                    el.className = "px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white";
-                } else {
-                    el.className = "px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200";
-                }
+                el.className = btn === mode ? "px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white" : "px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200";
             });
-
-            if (rawCSVData.length > 0) {
-                processPortfolio();
-            }
+            if (processedList.length > 0) renderChart(processedList);
         }
 
-        // Create Chart.js Curve
+        // ============================================================
+        // EQUITY CURVE + UNDERWATER DRAWDOWN CHART
+        // ============================================================
         function renderChart(list) {
             const ctx = document.getElementById('equityChart').getContext('2d');
-            
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
+            if (chartInstance) chartInstance.destroy();
 
-            // Get initial deposit for unrealized gain calculation
             const totalDeposits = list.reduce((sum, item) => item.isFunding && item.profit > 0 ? sum + item.profit : sum, 0);
             const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
             const unrealizedGainPercent = (totalUnrealizedPL / initialDeposit) * 100;
 
-            // Aggregate data based on period mode
-            let aggregatedData = [];
-            let labels = [];
-
+            let aggregatedData = [], labels = [];
             if (activePeriodMode === 'trade') {
                 labels = list.map((item, i) => `#${i + 1}`);
-                aggregatedData = list.map(item => ({
-                    label: item.rawDate,
-                    balance: item.balance + totalUnrealizedPL,
-                    gainPercent: item.gainPercent + unrealizedGainPercent
-                }));
+                aggregatedData = list.map(item => ({ balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }));
             } else if (activePeriodMode === 'daily') {
                 const dailyMap = {};
-                list.forEach(item => {
-                    const key = item.date.toISOString().split('T')[0];
-                    const balanceWithUnrealized = item.balance + totalUnrealizedPL;
-                    const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
-                    if (!dailyMap[key]) {
-                        dailyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
-                    } else {
-                        dailyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
-                    }
-                });
-                Object.keys(dailyMap).sort().forEach(date => {
-                    labels.push(date);
-                    aggregatedData.push(dailyMap[date]);
-                });
+                list.forEach(item => { const key = item.date.toISOString().split('T')[0]; dailyMap[key] = { balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }; });
+                Object.keys(dailyMap).sort().forEach(date => { labels.push(date); aggregatedData.push(dailyMap[date]); });
             } else if (activePeriodMode === 'monthly') {
                 const monthlyMap = {};
-                list.forEach(item => {
-                    const key = `${item.date.getFullYear()}-${(item.date.getMonth() + 1).toString().padStart(2, '0')}`;
-                    const balanceWithUnrealized = item.balance + totalUnrealizedPL;
-                    const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
-                    if (!monthlyMap[key]) {
-                        monthlyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
-                    } else {
-                        monthlyMap[key] = { label: key, balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
-                    }
-                });
-                Object.keys(monthlyMap).sort().forEach(key => {
-                    const [y, m] = key.split('-');
-                    labels.push(`${new Date(y, m-1).toLocaleString('default', { month: 'short' })} ${y}`);
-                    aggregatedData.push(monthlyMap[key]);
-                });
+                list.forEach(item => { const key = `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`; monthlyMap[key] = { balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }; });
+                Object.keys(monthlyMap).sort().forEach(key => { const [y,m] = key.split('-'); labels.push(`${new Date(y,m-1).toLocaleString('default',{month:'short'})} ${y}`); aggregatedData.push(monthlyMap[key]); });
             } else if (activePeriodMode === 'yearly') {
                 const yearlyMap = {};
-                list.forEach(item => {
-                    const key = item.date.getFullYear();
-                    const balanceWithUnrealized = item.balance + totalUnrealizedPL;
-                    const gainWithUnrealized = item.gainPercent + unrealizedGainPercent;
-                    if (!yearlyMap[key]) {
-                        yearlyMap[key] = { label: key.toString(), balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
-                    } else {
-                        yearlyMap[key] = { label: key.toString(), balance: balanceWithUnrealized, gainPercent: gainWithUnrealized };
-                    }
-                });
-                Object.keys(yearlyMap).sort().forEach(year => {
-                    labels.push(year);
-                    aggregatedData.push(yearlyMap[year]);
-                });
+                list.forEach(item => { const key = item.date.getFullYear(); yearlyMap[key] = { balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }; });
+                Object.keys(yearlyMap).sort().forEach(year => { labels.push(year); aggregatedData.push(yearlyMap[year]); });
             }
 
-            const datasetValues = activeChartType === 'gain' 
-                ? aggregatedData.map(item => parseFloat(item.gainPercent.toFixed(2)))
-                : aggregatedData.map(item => parseFloat(item.balance.toFixed(2)));
-
+            const datasetValues = activeChartType === 'gain' ? aggregatedData.map(item => parseFloat(item.gainPercent.toFixed(2))) : aggregatedData.map(item => parseFloat(item.balance.toFixed(2)));
             const labelString = activeChartType === 'gain' ? 'TWR Return Gain %' : 'Account Balance $';
             const accentColor = activeChartType === 'gain' ? '#10b981' : '#3b82f6';
-            const gradientBg = ctx.createLinearGradient(0, 0, 0, 320);
-            
-            if (activeChartType === 'gain') {
-                gradientBg.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
-                gradientBg.addColorStop(1, 'rgba(16, 185, 129, 0)');
-            } else {
-                gradientBg.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
-                gradientBg.addColorStop(1, 'rgba(59, 130, 246, 0)');
-            }
+            const gradientBg = ctx.createLinearGradient(0, 0, 0, 300);
+            if (activeChartType === 'gain') { gradientBg.addColorStop(0, 'rgba(16,185,129,0.25)'); gradientBg.addColorStop(1, 'rgba(16,185,129,0)'); }
+            else { gradientBg.addColorStop(0, 'rgba(59,130,246,0.25)'); gradientBg.addColorStop(1, 'rgba(59,130,246,0)'); }
 
             chartInstance = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: labelString,
-                        data: datasetValues,
-                        borderColor: accentColor,
-                        borderWidth: 2.5,
-                        backgroundColor: gradientBg,
-                        fill: true,
-                        tension: 0.1,
-                        pointRadius: aggregatedData.length < 50 ? 3 : 0,
-                        pointBackgroundColor: accentColor,
-                        pointHoverRadius: 6,
-                        pointHitRadius: 10
-                    }]
-                },
+                data: { labels, datasets: [{ label: labelString, data: datasetValues, borderColor: accentColor, borderWidth: 2.5, backgroundColor: gradientBg, fill: true, tension: 0.1, pointRadius: aggregatedData.length < 50 ? 3 : 0, pointBackgroundColor: accentColor, pointHoverRadius: 6, pointHitRadius: 10 }] },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: isFirstChartRender ? {
-                        duration: 800,
-                        easing: 'easeOutQuart'
-                    } : false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            backgroundColor: '#09090b',
-                            titleColor: '#71717a',
-                            bodyColor: '#f8fafc',
-                            borderColor: '#27272a',
-                            borderWidth: 1,
-                            padding: 10,
-                            displayColors: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return activeChartType === 'gain' 
-                                        ? `Gain: ${context.raw}%`
-                                        : `Balance: $${context.raw.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-                                }
-                            }
-                        }
-                    },
+                    responsive: true, maintainAspectRatio: false,
+                    animation: isFirstChartRender ? { duration: 800, easing: 'easeOutQuart' } : false,
+                    plugins: { legend: { display:false }, tooltip: { backgroundColor:'#09090b', titleColor:'#71717a', bodyColor:'#f8fafc', borderColor:'#27272a', borderWidth:1, padding:10, displayColors:false,
+                        callbacks: { label: (c) => activeChartType === 'gain' ? `Gain: ${c.raw}%` : `Balance: $${c.raw.toLocaleString(undefined,{minimumFractionDigits:2})}` } } },
                     scales: {
-                        x: {
-                            grid: {
-                                color: '#18181b',
-                                drawTicks: false
-                            },
-                            ticks: {
-                                color: '#71717a',
-                                font: {
-                                    size: 10
-                                },
-                                maxTicksLimit: 8
-                            }
-                        },
-                        y: {
-                            grid: {
-                                color: '#18181b',
-                                drawTicks: false
-                            },
-                            ticks: {
-                                color: '#71717a',
-                                font: {
-                                    size: 10
-                                },
-                                callback: function(value) {
-                                    return activeChartType === 'gain' ? value + '%' : '$' + value.toLocaleString();
-                                }
-                            }
-                        }
+                        x: { grid:{ color:'#18181b', drawTicks:false }, ticks:{ color:'#71717a', font:{size:10}, maxTicksLimit:8 } },
+                        y: { grid:{ color:'#18181b', drawTicks:false }, ticks:{ color:'#71717a', font:{size:10}, callback: v => activeChartType === 'gain' ? v + '%' : '$' + v.toLocaleString() } }
                     }
                 }
             });
-            
-            // Disable animation after first render
             isFirstChartRender = false;
+
+            // Underwater / drawdown chart (gain% basis, including unrealized)
+            let runningPeak = -Infinity;
+            const ddSeries = aggregatedData.map(item => {
+                if (item.gainPercent > runningPeak) runningPeak = item.gainPercent;
+                return parseFloat((item.gainPercent - runningPeak).toFixed(2));
+            });
+            const ddCtx = document.getElementById('drawdownChart').getContext('2d');
+            if (drawdownChartInstance) drawdownChartInstance.destroy();
+            drawdownChartInstance = new Chart(ddCtx, {
+                type: 'line',
+                data: { labels, datasets: [{ data: ddSeries, borderColor:'#ef4444', borderWidth:1.5, pointRadius:0, fill:'origin', backgroundColor:'rgba(239,68,68,0.15)', tension:0.1 }] },
+                options: {
+                    responsive:true, maintainAspectRatio:false, interaction:{ intersect:false, mode:'index' },
+                    plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(9,9,11,0.95)', callbacks:{ label:(c) => `Drawdown: ${c.parsed.y.toFixed(2)}%` } } },
+                    scales: { x:{ display:false }, y:{ grid:{ color:'rgba(255,255,255,0.02)' }, ticks:{ color:'#52525b', font:{size:8}, callback:v=>v.toFixed(1)+'%' }, max:0 } }
+                }
+            });
         }
+
+        // ============================================================
+        // INSTITUTIONAL METRICS ENGINE (adapted from ROWRIC backtest auditor)
+        // Runs on live processedList — heavy (Monte Carlo), so only on 15s cycle
+        // ============================================================
+        function computeInstitutionalMetrics(list, totalDeposits) {
+            const trades = list.filter(i => !i.isFunding && i.openDate && !isNaN(i.openDate.getTime()) && !isNaN(i.date.getTime()));
+            if (trades.length === 0) return;
+
+            const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
+            const netProfit = window.__latestNetProfit || 0;
+            const maxDDPercent = window.__latestMaxDrawdownPercent || 0;
+            const maxDDCash = window.__latestMaxDrawdownCash || 0;
+
+            const firstDate = trades[0].openDate < trades[0].date ? trades[0].openDate : trades[0].date;
+            let earliestDate = trades.reduce((min, t) => (t.openDate < min ? t.openDate : min), trades[0].openDate);
+            const durationYears = Math.max((Date.now() - earliestDate.getTime()) / (1000*60*60*24*365.25), 0.05);
+
+            const cagr = initialDeposit > 0 ? (Math.pow((initialDeposit + netProfit) / initialDeposit, 1/durationYears) - 1) * 100 : 0;
+
+            // Build compounding monthly/daily return series from per-trade TWR-style returns
+            const monthlyMap = {}, dailyMap = {};
+            trades.forEach(t => {
+                const r = t.tradeReturnPercent / 100;
+                const mKey = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+                const dKey = t.date.toISOString().split('T')[0];
+                monthlyMap[mKey] = (monthlyMap[mKey] === undefined ? 1 : monthlyMap[mKey]) * (1 + r);
+                dailyMap[dKey] = (dailyMap[dKey] === undefined ? 1 : dailyMap[dKey]) * (1 + r);
+            });
+            const monthlyReturns = Object.values(monthlyMap).map(v => v - 1);
+            const dailyReturns = Object.values(dailyMap).map(v => v - 1);
+
+            const avgMonthlyRet = monthlyReturns.reduce((a,b)=>a+b,0) / (monthlyReturns.length || 1);
+            const avgDailyRet = dailyReturns.reduce((a,b)=>a+b,0) / (dailyReturns.length || 1);
+            const monthlyStd = getStandardDeviation(monthlyReturns);
+            const monthlyRf = ANNUAL_RISK_FREE_RATE / 100 / 12;
+
+            const annSharpe = monthlyStd > 0 ? ((avgMonthlyRet - monthlyRf) / monthlyStd) * Math.sqrt(12) : 0;
+            const downsideDiffs = monthlyReturns.filter(r => r < monthlyRf).map(r => Math.pow(r - monthlyRf, 2));
+            const downsideDev = Math.sqrt(downsideDiffs.reduce((a,b)=>a+b,0) / (monthlyReturns.length || 1));
+            const annSortino = downsideDev > 0 ? ((avgMonthlyRet - monthlyRf) / downsideDev) * Math.sqrt(12) : 0;
+            const calmar = cagr / (maxDDPercent || 1);
+            const realizedVol = monthlyStd * Math.sqrt(12) * 100;
+            const varParametric = (avgMonthlyRet - 1.645 * monthlyStd) * 100;
+            const alpha = ((netProfit / initialDeposit) - (ANNUAL_BENCHMARK_RETURN/100 * durationYears)) * 100;
+
+            const wins = trades.filter(t => t.profit > 0);
+            const losses = trades.filter(t => t.profit < 0);
+            const grossProfit = wins.reduce((s,t)=>s+t.profit,0);
+            const grossLoss = Math.abs(losses.reduce((s,t)=>s+t.profit,0));
+            const profitFactor = grossLoss > 0 ? grossProfit/grossLoss : (grossProfit > 0 ? Infinity : 0);
+            const winRate = (wins.length / (trades.length || 1)) * 100;
+            const recoveryFactor = netProfit / (maxDDCash || 1);
+            const expectancy = netProfit / (trades.length || 1);
+            const avgWinAmt = wins.length ? grossProfit/wins.length : 0;
+            const avgLossAmt = losses.length ? grossLoss/losses.length : 0;
+            const rrRatio = avgLossAmt > 0 ? avgWinAmt/avgLossAmt : (avgWinAmt > 0 ? Infinity : 0);
+
+            const updateMetric = (id, val, suffix = "", isRatio = false) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                const threshold = isRatio ? 1.0 : 0;
+                el.className = `metric-value ${val > threshold ? 'val-pos' : val < threshold ? 'val-neg' : 'val-neutral'}`;
+            };
+
+            updateMetric('stat-cagr', cagr, "%");
+            updateMetric('stat-avg-monthly', avgMonthlyRet*100, "%");
+            updateMetric('stat-avg-daily', avgDailyRet*100, "%");
+            updateMetric('stat-sharpe', annSharpe);
+            updateMetric('stat-sortino', annSortino);
+            updateMetric('stat-calmar', calmar);
+            updateMetric('stat-wr2', winRate, "%");
+            document.getElementById('stat-vol').innerText = realizedVol.toFixed(2) + '%';
+            document.getElementById('stat-vol').className = 'metric-value val-neutral';
+
+            updateMetric('stat-var', varParametric, "%");
+            updateMetric('stat-pf', profitFactor, "", true);
+            updateMetric('stat-rec', recoveryFactor);
+            updateMetric('stat-expectancy', expectancy, "$");
+            updateMetric('stat-alpha', alpha, "%");
+            document.getElementById('stat-rr').innerText = `1:${isFinite(rrRatio) ? rrRatio.toFixed(2) : '∞'}`;
+            document.getElementById('stat-rr').className = `metric-value ${rrRatio >= 1 ? 'val-pos' : 'val-neg'}`;
+
+            // ---- Duration Analysis ----
+            const analyticsTrades = trades.map(t => ({
+                date: t.date, profit: t.profit, balance: t.balance,
+                duration: Math.max(0,(t.date - t.openDate)/60000),
+                returnPct: t.tradeReturnPercent, lots: t.volume || 0,
+                direction: (t.type || '').toLowerCase().includes('sell') || (t.type||'').toLowerCase().includes('short') ? 'SELL' : 'BUY'
+            }));
+            renderDurationAnalysis(analyticsTrades);
+
+            // ---- Hourly / Daily Periodicity ----
+            const hourlyStats = Array(24).fill(0);
+            const dailyStats = Array(7).fill(0);
+            analyticsTrades.forEach(t => { hourlyStats[t.date.getHours()] += t.returnPct; dailyStats[t.date.getDay()] += t.returnPct; });
+            renderHourlyPerformance(hourlyStats);
+            renderDailyPerformance(dailyStats);
+
+            // ---- Factor Attribution (Long/Short) ----
+            const directionStats = {};
+            analyticsTrades.forEach(t => {
+                const dir = t.direction;
+                if (!directionStats[dir]) directionStats[dir] = { count:0, wins:0, grossProfit:0, grossLoss:0, totalProfit:0, sumReturns:0 };
+                directionStats[dir].count++;
+                directionStats[dir].totalProfit += t.profit;
+                directionStats[dir].sumReturns += (t.returnPct/100);
+                if (t.profit > 0) { directionStats[dir].wins++; directionStats[dir].grossProfit += t.profit; }
+                else if (t.profit < 0) { directionStats[dir].grossLoss += Math.abs(t.profit); }
+            });
+            renderAttribution(directionStats);
+
+            // ---- Notional Exposure Matrix + Rebate ----
+            renderLotsMatrixAndRebate(analyticsTrades);
+
+            // ---- Risk of Ruin ----
+            renderRiskOfRuin(analyticsTrades, wins.length, losses.length);
+
+            // ---- Monte Carlo ----
+            runMonteCarlo(analyticsTrades, initialDeposit);
+        }
+
+        function renderDurationAnalysis(trades) {
+            const durations = trades.map(t => t.duration);
+            if (durations.length === 0) return;
+            const avg = durations.reduce((a,b)=>a+b,0)/durations.length;
+            const max = Math.max(...durations);
+            const min = Math.min(...durations);
+            const sorted = [...durations].sort((a,b)=>b-a);
+            const p5Value = sorted[Math.floor(sorted.length*0.05)] || 0;
+
+            document.getElementById('dur-avg').innerText = formatDurationMinutes(avg);
+            document.getElementById('dur-max').innerText = formatDurationMinutes(max);
+            document.getElementById('dur-min').innerText = formatDurationMinutes(min);
+            document.getElementById('dur-p5').innerText = formatDurationMinutes(p5Value);
+
+            const ctx = document.getElementById('durationChart').getContext('2d');
+            if (durationChartInstance) durationChartInstance.destroy();
+            durationChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: [{ data: trades.map(t => ({x:t.duration, y:t.returnPct})), backgroundColor: trades.map(t => t.profit >= 0 ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'), borderColor:'transparent', pointRadius:4, hoverRadius:8 }] },
+                options: {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins: { legend:{ display:false }, tooltip:{ backgroundColor:'rgba(0,0,0,0.9)', padding:12, callbacks:{ label:(c)=>[`Excess Return: ${c.parsed.y.toFixed(2)}%`, `Duration: ${formatDurationMinutes(c.parsed.x)}`] } } },
+                    scales: {
+                        x: { grid:{ color:'rgba(255,255,255,0.02)' }, title:{ display:true, text:'HOLDING DURATION', color:'#52525b', font:{size:9,weight:'900'} }, ticks:{ color:'#71717a', font:{size:9}, callback:v=>formatDurationMinutes(v) } },
+                        y: { grid:{ color:'rgba(255,255,255,0.02)' }, title:{ display:true, text:'RETURN (%)', color:'#52525b', font:{size:9,weight:'900'} }, ticks:{ color:'#71717a', font:{size:9}, callback:v=>v+'%' } }
+                    }
+                }
+            });
+        }
+
+        function renderHourlyPerformance(data) {
+            const ctx = document.getElementById('hourlyChart').getContext('2d');
+            if (hourlyChartInstance) hourlyChartInstance.destroy();
+            hourlyChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: Array.from({length:24}, (_,i)=>`${i}:00`), datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? '#10b981' : '#ef4444'), borderRadius:50 }] },
+                options: {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins: { legend:{ display:false }, tooltip:{ callbacks:{ label:(c)=>`Total Return: ${c.parsed.y.toFixed(2)}%` } } },
+                    scales: { x:{ grid:{ display:false }, ticks:{ color:'#52525b', font:{size:9} } }, y:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#52525b', callback:v=>v.toFixed(1)+'%' } } }
+                }
+            });
+        }
+        function renderDailyPerformance(data) {
+            const ctx = document.getElementById('dailyPatternChart').getContext('2d');
+            if (dailyPatternChartInstance) dailyPatternChartInstance.destroy();
+            const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            dailyPatternChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? '#10b981' : '#ef4444'), borderRadius:50 }] },
+                options: {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins: { legend:{ display:false }, tooltip:{ callbacks:{ label:(c)=>`Total Return: ${c.parsed.y.toFixed(2)}%` } } },
+                    scales: { x:{ grid:{ display:false }, ticks:{ color:'#52525b', font:{size:9} } }, y:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#52525b', callback:v=>v.toFixed(1)+'%' } } }
+                }
+            });
+        }
+
+        function renderAttribution(stats) {
+            const body = document.getElementById('attribution-body');
+            body.innerHTML = '';
+            const totalBuy = stats['BUY']?.count || 0;
+            const totalSell = stats['SELL']?.count || 0;
+            const total = totalBuy + totalSell || 1;
+            const buyPct = ((totalBuy/total)*100).toFixed(1);
+            const sellPct = ((totalSell/total)*100).toFixed(1);
+
+            document.getElementById('distribution-stats').innerHTML = `
+                <div class="space-y-1"><p class="text-[10px] font-black uppercase text-zinc-600 tracking-[0.3em]">Long Exposure</p><p class="text-4xl font-black tracking-tighter text-emerald-500">${buyPct}<span class="text-lg ml-1 font-light opacity-50">%</span></p></div>
+                <div class="space-y-1 text-right"><p class="text-[10px] font-black uppercase text-zinc-600 tracking-[0.3em]">Short Exposure</p><p class="text-4xl font-black tracking-tighter text-rose-500">${sellPct}<span class="text-lg ml-1 font-light opacity-50">%</span></p></div>
+            `;
+
+            ['BUY','SELL'].forEach(key => {
+                const displayKey = key === 'BUY' ? 'LONG' : 'SHORT';
+                const s = stats[key] || { count:0, wins:0, grossProfit:0, grossLoss:0, totalProfit:0, sumReturns:0 };
+                const pf = s.grossProfit / (s.grossLoss || 1);
+                const wr = (s.wins / (s.count || 1)) * 100;
+                const expRet = (s.sumReturns / (s.count || 1)) * 100;
+                const pfClass = pf > 1 ? 'val-pos' : pf < 1 ? (s.count > 0 ? 'val-neg' : 'val-neutral') : 'val-neutral';
+                const expClass = expRet > 0 ? 'val-pos' : expRet < 0 ? 'val-neg' : 'val-neutral';
+                const row = document.createElement('tr');
+                row.className = "border-b border-zinc-900/50 hover:bg-white/5 transition-colors";
+                row.innerHTML = `
+                    <td class="py-3 text-left font-black tracking-widest text-zinc-300">${displayKey}</td>
+                    <td class="py-3 text-right font-light text-zinc-300">${s.count}</td>
+                    <td class="py-3 text-right ${pfClass} font-light">${isFinite(pf) ? pf.toFixed(2) : '∞'}</td>
+                    <td class="py-3 text-right font-light text-zinc-300">${wr.toFixed(1)}%</td>
+                    <td class="py-3 text-right ${expClass} font-light">${expRet.toFixed(4)}%</td>
+                `;
+                body.appendChild(row);
+            });
+
+            const ctx = document.getElementById('attributionPieChart').getContext('2d');
+            if (attributionChartInstance) attributionChartInstance.destroy();
+            attributionChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: ['Distribution'], datasets: [
+                    { label:'LONG', data:[totalBuy], backgroundColor:'#10b981', barThickness:24, borderRadius:{topLeft:50,bottomLeft:50}, borderSkipped:false },
+                    { label:'SHORT', data:[totalSell], backgroundColor:'#ef4444', barThickness:24, borderRadius:{topRight:50,bottomRight:50}, borderSkipped:false }
+                ] },
+                options: {
+                    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+                    plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(0,0,0,0.9)', padding:12, callbacks:{ label:(c)=>`${c.dataset.label}: ${c.parsed.x} Trades (${((c.parsed.x/total)*100).toFixed(1)}%)` } } },
+                    scales: { x:{ stacked:true, display:false, max: total }, y:{ stacked:true, display:false } }
+                }
+            });
+        }
+
+        function renderLotsMatrixAndRebate(trades) {
+            const lotMatrix = {};
+            trades.forEach(t => {
+                const y = t.date.getFullYear(), m = t.date.getMonth();
+                if (!lotMatrix[y]) lotMatrix[y] = Array(12).fill(0);
+                lotMatrix[y][m] += t.lots || 0;
+            });
+            let totalLots = 0;
+            Object.keys(lotMatrix).forEach(y => lotMatrix[y].forEach(l => totalLots += l));
+            const totalRebate = totalLots * REBATE_PER_LOT;
+
+            const totalLotsEl = document.getElementById('stat-total-lots');
+            const totalRebateEl = document.getElementById('stat-total-rebate');
+            if (totalLotsEl) { totalLotsEl.innerText = totalLots.toFixed(2); totalLotsEl.className = 'metric-value val-neutral'; }
+            if (totalRebateEl) { totalRebateEl.innerText = '$' + totalRebate.toFixed(2); totalRebateEl.className = 'metric-value val-pos'; }
+
+            const body = document.getElementById('lots-monthly-body');
+            if (!body) return;
+            body.innerHTML = '';
+            const sortedYears = Object.keys(lotMatrix).sort().reverse();
+            if (sortedYears.length === 0) { body.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting cycles...</td></tr>'; return; }
+
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            sortedYears.forEach(year => {
+                const row = document.createElement('tr');
+                let yearlyLots = 0;
+                let html = `<td class="font-black text-white">${year}</td>`;
+                for (let i = 0; i < 12; i++) {
+                    const lots = lotMatrix[year][i];
+                    if (!lots) html += `<td>-</td>`;
+                    else {
+                        const rebate = (lots * REBATE_PER_LOT).toFixed(2);
+                        html += `<td onmouseenter="showTableTooltip('${months[i]}','${year}','${rebate}',true)" onmouseleave="hideTableTooltip()" class="hover:text-zinc-300 transition-colors cursor-pointer">${lots.toFixed(2)}</td>`;
+                    }
+                    yearlyLots += lots;
+                }
+                const totalRebateY = (yearlyLots * REBATE_PER_LOT).toFixed(2);
+                html += `<td class="font-black text-zinc-500 cursor-pointer" onmouseenter="showTableTooltip('Annual','${year}','${totalRebateY}',true)" onmouseleave="hideTableTooltip()">${yearlyLots.toFixed(2)}</td>`;
+                row.innerHTML = html;
+                body.appendChild(row);
+            });
+        }
+
+        window.showTableTooltip = (period, year, val, isLots = true) => {
+            const tooltip = document.getElementById('table-tooltip');
+            tooltip.innerHTML = `<div class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">${isLots ? 'Notional Exposure' : 'Monthly Return'} — ${period} ${year}</div><div class="text-xs font-light text-white">${isLots ? 'Rebate: $' + val : 'Yield: ' + val + '%'}</div>`;
+            tooltip.style.display = 'block';
+        };
+        window.hideTableTooltip = () => { document.getElementById('table-tooltip').style.display = 'none'; };
+        document.addEventListener('mousemove', (e) => {
+            const tooltip = document.getElementById('table-tooltip');
+            if (tooltip.style.display === 'block') { tooltip.style.left = (e.clientX + 16) + 'px'; tooltip.style.top = (e.clientY + 16) + 'px'; }
+        });
+
+        function renderRiskOfRuin(trades, winsCount, lossesCount) {
+            const winRate = winsCount / (trades.length || 1);
+            const avgWinPct = trades.filter(t => t.profit > 0).reduce((s,t)=>s+t.returnPct,0) / (winsCount || 1);
+            const avgLossPct = Math.abs(trades.filter(t => t.profit < 0).reduce((s,t)=>s+t.returnPct,0) / (lossesCount || 1));
+            const payoffRatio = avgWinPct / (avgLossPct || 1);
+
+            const solveRoRRoot = (p, r) => {
+                if (p * r <= (1 - p)) return 1;
+                let low = 0, high = 1;
+                for (let i = 0; i < 40; i++) {
+                    let mid = (low + high) / 2;
+                    let val = p * Math.pow(mid, r + 1) - mid + (1 - p);
+                    if (val > 0) low = mid; else high = mid;
+                }
+                return (low + high) / 2;
+            };
+            const root = solveRoRRoot(winRate, payoffRatio);
+
+            for (let i = 10; i <= 100; i += 10) {
+                const units = i / (avgLossPct || 0.01);
+                let prob = Math.pow(root, units) * 100;
+                const el = document.getElementById(`ror-${i}`);
+                if (!el) continue;
+                if (prob < 0.01) {
+                    if (prob === 0) { el.innerText = "0.00%"; el.className = "py-4 text-center font-medium val-neutral"; }
+                    else { el.innerText = "< 0.01%"; el.className = "py-4 text-center font-medium val-pos"; }
+                } else if (prob >= 99.99) { el.innerText = root === 1 ? "100.00%" : "99.99%"; el.className = "py-4 text-center font-medium val-neg"; }
+                else { el.innerText = `${prob.toFixed(2)}%`; el.className = `py-4 text-center font-medium ${prob > 50 ? 'val-neg' : prob > 10 ? 'text-zinc-400' : 'val-pos'}`; }
+            }
+        }
+
+        // ============================================================
+        // MONTE CARLO SIMULATION
+        // ============================================================
+        function runMonteCarlo(trades, initialDeposit) {
+            if (trades.length === 0) return;
+            const numSims = 5000;
+            const numTrades = trades.length;
+            const finalReturns = [], maxDrawdowns = [], maxStagnations = [];
+            let ruinCount = 0, profitableRuns = 0;
+            const stepDistributions = Array.from({length: numTrades + 1}, () => []);
+
+            for (let i = 0; i < numSims; i++) {
+                let balance = initialDeposit, runningMax = initialDeposit, maxDD = 0, currentStagnation = 0, maxStagnation = 0;
+                stepDistributions[0].push(0);
+                for (let j = 0; j < numTrades; j++) {
+                    const randomTrade = trades[Math.floor(Math.random() * numTrades)];
+                    const tradeImpact = runningMax * (randomTrade.returnPct / 100);
+                    balance += tradeImpact;
+                    if (balance > runningMax) runningMax = balance;
+                    if (balance <= 0) { balance = 0; maxDD = 100; break; }
+                    const dd = ((runningMax - balance) / runningMax) * 100;
+                    if (dd > maxDD) maxDD = dd;
+                    stepDistributions[j+1].push(((balance - initialDeposit) / initialDeposit) * 100);
+                }
+                maxStagnation = Math.max(maxStagnation, currentStagnation);
+                const totalReturnPct = ((balance - initialDeposit) / initialDeposit) * 100;
+                finalReturns.push(totalReturnPct);
+                maxDrawdowns.push(maxDD);
+                maxStagnations.push(maxStagnation);
+                if (maxDD >= 99.9) ruinCount++;
+                if (totalReturnPct > 0) profitableRuns++;
+            }
+
+            const p5Path = [], p50Path = [], p95Path = [];
+            for (let j = 0; j <= numTrades; j++) {
+                const values = stepDistributions[j].sort((a,b)=>a-b);
+                p5Path.push(values[Math.floor(numSims*0.05)]);
+                p50Path.push(values[Math.floor(numSims*0.50)]);
+                p95Path.push(values[Math.floor(numSims*0.95)]);
+            }
+
+            finalReturns.sort((a,b)=>a-b);
+            maxDrawdowns.sort((a,b)=>a-b);
+            maxStagnations.sort((a,b)=>a-b);
+
+            const medianReturn = finalReturns[Math.floor(numSims*0.5)];
+            const worstReturn = finalReturns[Math.floor(numSims*0.05)];
+            const bestReturn = finalReturns[Math.floor(numSims*0.95)];
+            const medianDD = maxDrawdowns[Math.floor(numSims*0.5)];
+            const worstDD = maxDrawdowns[Math.floor(numSims*0.95)];
+            const medianStagnation = maxStagnations[Math.floor(numSims*0.5)];
+            const p95Stagnation = maxStagnations[Math.floor(numSims*0.95)];
+            const probProfit = (profitableRuns / numSims) * 100;
+            const bankruptcyRisk = (ruinCount / numSims) * 100;
+            const robustScore = Math.min(999, medianReturn / (worstDD || 1));
+
+            document.getElementById('mc-sim-count').innerText = numSims.toLocaleString();
+            document.getElementById('mc-trade-count').innerText = numTrades.toLocaleString();
+
+            updateMonteCarloUI(medianReturn, worstReturn, bestReturn, medianDD, worstDD, medianStagnation, p95Stagnation, probProfit, bankruptcyRisk, robustScore);
+            renderMonteCarloChart(p5Path, p50Path, p95Path, numTrades);
+        }
+
+        function updateMonteCarloUI(medianReturn, worstReturn, bestReturn, medianDD, worstDD, stagnation, p95Stag, probProfit, ruin, robust) {
+            const varLoss = Math.max(0, -worstReturn);
+            document.getElementById('mc-median-ret').innerText = medianReturn.toFixed(2) + "%";
+            document.getElementById('mc-median-ret').className = `metric-value ${medianReturn >= 0 ? 'val-pos' : 'val-neg'}`;
+            document.getElementById('mc-best-case').innerText = bestReturn.toFixed(2) + "%";
+            document.getElementById('mc-range').innerText = (bestReturn / (Math.abs(worstReturn) || 1)).toFixed(1) + "x";
+            document.getElementById('mc-tail-outcome').innerText = worstReturn.toFixed(2) + "%";
+            document.getElementById('mc-tail-outcome').className = `metric-value ${worstReturn >= 0 ? 'val-pos' : 'val-neg'}`;
+            document.getElementById('mc-worst-ret').innerText = (varLoss > 100 ? 100 : varLoss).toFixed(2) + "%";
+            document.getElementById('mc-worst-ret').className = `metric-value ${varLoss > 0 ? 'val-neg' : 'val-neutral'}`;
+            document.getElementById('mc-median-dd').innerText = medianDD.toFixed(2) + "%";
+            document.getElementById('mc-worst-dd').innerText = worstDD.toFixed(2) + "%";
+            document.getElementById('mc-stagnation').innerHTML = `${stagnation}<span class="text-xs text-zinc-600 ml-2">/ ${p95Stag}</span>`;
+            document.getElementById('mc-prob-profit').innerText = probProfit.toFixed(2) + "%";
+            document.getElementById('mc-prob-profit').className = `metric-value ${probProfit >= 50 ? 'val-pos' : 'val-neg'}`;
+            document.getElementById('mc-ruin').innerText = ruin.toFixed(2) + "%";
+            document.getElementById('mc-ruin').className = `metric-value ${ruin > 1 ? 'val-neg' : 'val-pos'}`;
+            document.getElementById('mc-robust-score').innerText = robust.toFixed(2);
+            document.getElementById('mc-robust-score').className = `metric-value ${robust >= 2 ? 'val-pos' : robust >= 1 ? 'val-neutral' : 'val-neg'}`;
+        }
+
+        function renderMonteCarloChart(p5, p50, p95, tradeCount) {
+            const ctx = document.getElementById('mcChart').getContext('2d');
+            if (mcChartInstance) mcChartInstance.destroy();
+            const labels = Array.from({length: tradeCount + 1}, (_, i) => i);
+            mcChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets: [
+                    { label:'Highest Projection (95%)', data:p95, borderColor:'#10b981', borderWidth:2, pointRadius:0, tension:0.1, fill:false },
+                    { label:'Median Expectancy', data:p50, borderColor:'#ffffff', borderWidth:2, pointRadius:0, tension:0.1, fill:false },
+                    { label:'Lowest Projection (5%)', data:p5, borderColor:'#ef4444', borderWidth:2, pointRadius:0, tension:0.1, fill:false }
+                ] },
+                options: {
+                    responsive:true, maintainAspectRatio:false, interaction:{ intersect:false, mode:'index' },
+                    plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(9,9,11,0.95)', padding:12, callbacks:{ label:(c)=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`, title:(c)=>`Trade Sequence: ${c[0].label}` } } },
+                    scales: {
+                        x: { grid:{ display:false }, ticks:{ color:'#52525b', font:{size:9} }, title:{ display:true, text:'SEQUENTIAL TRADES', color:'#52525b', font:{size:8,weight:'bold'} } },
+                        y: { grid:{ color:'rgba(255,255,255,0.02)' }, ticks:{ color:'#71717a', font:{size:9}, callback:v=>v.toFixed(0)+'%' }, title:{ display:true, text:'PROJECTED YIELD (%)', color:'#52525b', font:{size:8,weight:'bold'} } }
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // EXPORT TO PDF
+        // ============================================================
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            const { jsPDF } = window.jspdf;
+            const area = document.getElementById('capture-area');
+            const canvas = await html2canvas(area, { backgroundColor:'#000000', scale:2, useCORS:true, logging:false, windowWidth:1440 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdfWidth = 210;
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`ROWRIC_LIVE_AUDIT_${Date.now()}.pdf`);
+        });
     </script>
 </body>
 </html>
