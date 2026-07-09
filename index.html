@@ -39,15 +39,15 @@
         .h-neg-1,.h-neg-2,.h-neg-3,.h-neg-4 { color:#ef4444; }
         .heatmap-row:hover .heatmap-cell:not(.heatmap-year):not(.heatmap-annual) { filter: brightness(1.2); }
 
-        .open-trades-table { table-layout: fixed; width: 100%; }
+        .open-trades-table { table-layout: auto; width: 100%; min-width: 900px; }
         .open-trades-table th, .open-trades-table td { white-space: nowrap; }
-        .open-trades-table .col-open-time { min-width: 160px; }
-        .open-trades-table .col-symbol { min-width: 100px; }
-        .open-trades-table .col-volume { min-width: 80px; }
+        .open-trades-table .col-open-time { min-width: 150px; }
+        .open-trades-table .col-symbol { min-width: 80px; }
+        .open-trades-table .col-volume { min-width: 65px; }
         .open-trades-table .col-open-price, .open-trades-table .col-tp, .open-trades-table .col-sl,
         .open-trades-table .col-current-price, .open-trades-table .col-gain, .open-trades-table .col-commission,
-        .open-trades-table .col-swap, .open-trades-table .col-profit { min-width: 100px; }
-        .open-trades-table .col-holding { min-width: 110px; }
+        .open-trades-table .col-swap, .open-trades-table .col-profit { min-width: 85px; }
+        .open-trades-table .col-holding { min-width: 100px; }
 
         .monthly-table { table-layout: fixed; width: 100%; border-spacing: 0; min-width: 1000px; }
         .monthly-table th { padding: .6rem .25rem; font-size:10px; font-weight:900; text-transform:uppercase; color:#52525b; border-bottom:1px solid #18181b; text-align:right; font-variant-numeric: tabular-nums; }
@@ -79,10 +79,129 @@
             75%, 100% { transform: scale(2.4); opacity: 0; }
         }
 
+
+        /* ── PIN LOCK SCREEN ─────────────────────────────── */
+        #pin-overlay {
+            position: fixed; inset: 0; z-index: 99999;
+            background: #000;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 0;
+            transition: opacity .6s ease;
+        }
+        #pin-overlay.fade-out { opacity: 0; pointer-events: none; }
+
+        .pin-dot {
+            width: 14px; height: 14px; border-radius: 9999px;
+            border: 2px solid #3f3f46;
+            transition: background .15s ease, border-color .15s ease, transform .15s ease;
+        }
+        .pin-dot.filled { background: #f4f4f5; border-color: #f4f4f5; transform: scale(1.15); }
+        .pin-dot.error  { background: #ef4444; border-color: #ef4444; }
+        .pin-dot.success{ background: #10b981; border-color: #10b981; }
+
+        .pin-key {
+            width: 72px; height: 72px; border-radius: 9999px;
+            background: rgba(255,255,255,0.04); border: 1px solid #27272a;
+            color: #f4f4f5; font-size: 1.25rem; font-weight: 900;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background .15s ease, transform .1s ease;
+            -webkit-tap-highlight-color: transparent; user-select: none;
+        }
+        .pin-key:active { background: rgba(255,255,255,0.12); transform: scale(0.93); }
+        .pin-key.del { color: #71717a; font-size: .9rem; }
+
+        @keyframes pinShake {
+            0%,100%{ transform:translateX(0); }
+            20%{ transform:translateX(-8px); }
+            40%{ transform:translateX(8px); }
+            60%{ transform:translateX(-6px); }
+            80%{ transform:translateX(6px); }
+        }
+        .pin-shake { animation: pinShake .4s ease; }
+
     </style>
 </head>
 
 <body class="bg-darkBg text-slate-100 font-sans min-h-screen">
+    <!-- PIN LOCK SCREEN / WELCOME COVER -->
+    <div id="pin-overlay">
+
+        <!-- Background grid lines (decorative) -->
+        <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:64px 64px;pointer-events:none;"></div>
+
+        <!-- Radial glow centre -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(16,185,129,0.06) 0%,transparent 70%);pointer-events:none;border-radius:9999px;"></div>
+
+        <!-- PHONE layout: side-by-side branding + keypad -->
+        <!-- TABLET/PC layout: stacked branding above keypad -->
+        <div id="pin-inner" style="position:relative;z-index:1;width:100%;max-width:800px;padding:24px;display:flex;flex-direction:column;align-items:center;">
+
+            <!-- Branding -->
+            <div id="pin-brand" style="text-align:center;margin-bottom:32px;">
+                <p style="font-size:8px;text-transform:uppercase;letter-spacing:.55em;color:#3f3f46;font-weight:900;margin-bottom:10px;">Quantitative Portfolio Auditor</p>
+                <h1 style="font-size:clamp(2.4rem,8vw,4.5rem);font-weight:900;letter-spacing:-.05em;color:#f4f4f5;line-height:.95;margin:0;">ROWRIC</h1>
+                <div style="width:40px;height:2px;background:linear-gradient(90deg,transparent,#10b981,transparent);margin:12px auto 0;"></div>
+                <p style="font-size:8px;text-transform:uppercase;letter-spacing:.35em;color:#52525b;margin-top:10px;">Live Portfolio Auditor</p>
+            </div>
+
+            <!-- Dots + keypad wrapper — responsive via CSS class -->
+            <div id="pin-keypad-wrap" style="display:flex;flex-direction:column;align-items:center;gap:24px;">
+
+                <!-- Dots row -->
+                <div id="pin-dots" style="display:flex;gap:14px;align-items:center;">
+                    <div class="pin-dot" id="d0"></div>
+                    <div class="pin-dot" id="d1"></div>
+                    <div class="pin-dot" id="d2"></div>
+                    <div class="pin-dot" id="d3"></div>
+                    <div class="pin-dot" id="d4"></div>
+                    <div class="pin-dot" id="d5"></div>
+                </div>
+
+                <!-- Standard 3×4 grid keypad (shown on tablet/pc, hidden on phone via JS) -->
+                <div id="pin-grid" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
+                    <button class="pin-key" onclick="pinPress('1')">1</button>
+                    <button class="pin-key" onclick="pinPress('2')">2</button>
+                    <button class="pin-key" onclick="pinPress('3')">3</button>
+                    <button class="pin-key" onclick="pinPress('4')">4</button>
+                    <button class="pin-key" onclick="pinPress('5')">5</button>
+                    <button class="pin-key" onclick="pinPress('6')">6</button>
+                    <button class="pin-key" onclick="pinPress('7')">7</button>
+                    <button class="pin-key" onclick="pinPress('8')">8</button>
+                    <button class="pin-key" onclick="pinPress('9')">9</button>
+                    <div></div>
+                    <button class="pin-key" onclick="pinPress('0')">0</button>
+                    <button class="pin-key del" onclick="pinDel()">⌫</button>
+                </div>
+
+                <!-- Vertical single-column keypad (shown on phone only, hidden on tablet/pc via JS) -->
+                <div id="pin-vertical" style="display:none;flex-direction:column;gap:8px;">
+                    <div style="display:flex;gap:8px;">
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('1')">1</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('2')">2</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('3')">3</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('4')">4</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('5')">5</button>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('6')">6</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('7')">7</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('8')">8</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('9')">9</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('0')">0</button>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;padding-right:0;">
+                        <button class="pin-key del" style="width:58px;height:40px;font-size:.85rem;" onclick="pinDel()">⌫</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <p id="pin-hint" style="font-size:8px;text-transform:uppercase;letter-spacing:.25em;color:#3f3f46;height:12px;margin-top:20px;"></p>
+            <p style="font-size:8px;color:#27272a;text-transform:uppercase;letter-spacing:.2em;margin-top:24px;">© ROWRIC · Secured Access</p>
+        </div>
+    </div>
+
     <div id="table-tooltip"></div>
 
     <main class="max-w-7xl mx-auto px-3 py-6 sm:px-4 sm:py-12 space-y-4 sm:space-y-6">
@@ -189,12 +308,12 @@
             </div>
         </div>
         <!-- Open Trades -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl flex flex-col">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-3 sm:p-6 shadow-xl flex flex-col" style="overflow:hidden;">
             <div class="flex justify-between items-center mb-3">
                 <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Open Positions (Unrealized)</h4>
                 <span id="open-trades-count" class="text-xs bg-amber-900/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20">0 Active</span>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
+            <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]" style="-webkit-overflow-scrolling:touch;">
                 <table class="open-trades-table w-full text-xs text-left text-slate-300">
                     <thead class="text-slate-400 uppercase bg-black/80 sticky top-0 border-b border-zinc-800">
                         <tr>
@@ -501,6 +620,7 @@
         let latestPortfolioBalance = NaN;
         let totalUnrealizedPL = 0;
         let isFirstChartRender = true;
+        let isFirstDrawdownRender = true;
 
         let columnMapping = { date:'', profit:'', balance:'', type:'', openDate:'', symbol:'', volume:'', openPrice:'', closePrice:'', magic:'' };
         let openTradeColumnMapping = { time:'', status:'', symbol:'', type:'', volume:'', openPrice:'', currentPrice:'', takeProfit:'', stopLoss:'', commission:'', swap:'', profit:'' };
@@ -508,6 +628,86 @@
         // Sync inputs to initial values
         document.getElementById('rfr-input').value = ANNUAL_RISK_FREE_RATE.toFixed(2);
         document.getElementById('bmk-input').value = ANNUAL_BENCHMARK_RETURN.toFixed(2);
+
+        // ============================================================
+        // PIN LOCK
+        // ============================================================
+        const PIN_CODE = '120905';
+        let pinEntry = '';
+
+        function pinPress(digit) {
+            if (pinEntry.length >= 6) return;
+            pinEntry += digit;
+            updatePinDots();
+            if (pinEntry.length === 6) {
+                setTimeout(checkPin, 80);
+            }
+        }
+
+        function pinDel() {
+            if (pinEntry.length === 0) return;
+            pinEntry = pinEntry.slice(0, -1);
+            updatePinDots();
+        }
+
+        function updatePinDots(state) {
+            for (let i = 0; i < 6; i++) {
+                const dot = document.getElementById('d' + i);
+                dot.className = 'pin-dot';
+                if (state === 'error') dot.classList.add('error');
+                else if (state === 'success') dot.classList.add('success');
+                else if (i < pinEntry.length) dot.classList.add('filled');
+            }
+        }
+
+        function checkPin() {
+            if (pinEntry === PIN_CODE) {
+                updatePinDots('success');
+                setTimeout(() => {
+                    const overlay = document.getElementById('pin-overlay');
+                    overlay.classList.add('fade-out');
+                    setTimeout(() => overlay.style.display = 'none', 650);
+                }, 350);
+            } else {
+                updatePinDots('error');
+                const dots = document.getElementById('pin-dots');
+                dots.classList.add('pin-shake');
+                const hint = document.getElementById('pin-hint');
+                hint.textContent = 'Incorrect PIN';
+                hint.style.color = '#ef4444';
+                setTimeout(() => {
+                    pinEntry = '';
+                    updatePinDots();
+                    dots.classList.remove('pin-shake');
+                    hint.textContent = '';
+                }, 700);
+            }
+        }
+
+        // Also allow physical keyboard input
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('pin-overlay').style.display === 'none') return;
+            if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+            else if (e.key === 'Backspace') pinDel();
+        });
+
+                // Switch PIN keypad layout based on screen width
+        function applyPinLayout() {
+            const isPhone = window.innerWidth < 640;
+            const grid = document.getElementById('pin-grid');
+            const vert = document.getElementById('pin-vertical');
+            if (!grid || !vert) return;
+            if (isPhone) {
+                grid.style.display = 'none';
+                vert.style.display = 'flex';
+                // On phone: put brand above, keypad below — already column
+            } else {
+                grid.style.display = 'grid';
+                vert.style.display = 'none';
+            }
+        }
+        applyPinLayout();
+        window.addEventListener('resize', applyPinLayout);
 
         window.onload = function () {
             updateWorldClocks();
@@ -1292,6 +1492,7 @@
         }
         function changePeriodMode(mode) {
             activePeriodMode = mode;
+            isFirstDrawdownRender = true; // re-animate drawdown on period change
             ['trade','daily','monthly','yearly'].forEach(btn => {
                 const el = document.getElementById(`btn-period-${btn}`);
                 el.className = btn === mode ? "px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white" : "px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200";
@@ -1435,10 +1636,12 @@
                 data: { labels, datasets: [{ data: ddSeries, borderColor:'#ef4444', borderWidth:1.5, pointRadius:0, fill:'origin', backgroundColor:'rgba(239,68,68,0.15)', tension:0.1 }] },
                 options: {
                     responsive:true, maintainAspectRatio:false, interaction:{ intersect:false, mode:'index' },
+                    animation: isFirstDrawdownRender ? { duration: 600, easing: 'easeOutQuart' } : false,
                     plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(9,9,11,0.95)', callbacks:{ label:(c) => `Drawdown: ${c.parsed.y.toFixed(2)}%` } } },
                     scales: { x:{ display:false }, y:{ grid:{ color:'rgba(255,255,255,0.02)' }, ticks:{ color:'#52525b', font:{size:8}, callback:v=>v.toFixed(1)+'%' }, max:0 } }
                 }
             });
+            isFirstDrawdownRender = false;
         }
 
         // ============================================================
@@ -1999,4 +2202,3 @@
     </script>
 </body>
 </html>
-
