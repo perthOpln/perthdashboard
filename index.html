@@ -55,10 +55,12 @@
         .monthly-table th:first-child, .monthly-table td:first-child { text-align:left; width:60px; }
         .monthly-table th:last-child, .monthly-table td:last-child { width:100px; }
 
-        .metric-card { background: rgba(24,24,27,0.4); border:1px solid #18181b; border-radius: 0.75rem; padding: 1rem; transition: all .3s ease; }
+        .metric-card { background: rgba(24,24,27,0.4); border:1px solid #18181b; border-radius: 0.75rem; padding: 0.75rem; transition: all .3s ease; }
+        @media(min-width:640px){ .metric-card { padding: 1rem; } }
         .metric-card:hover { background: rgba(255,255,255,0.03); border-color:#3f3f46; }
         .metric-label { font-size:10px; text-transform:uppercase; letter-spacing:.15em; color:#71717a; font-weight:700; margin-bottom:.25rem; }
-        .metric-value { font-size:1.5rem; font-weight:900; }
+        .metric-value { font-size:1.25rem; font-weight:900; }
+        @media(min-width:640px){ .metric-value { font-size:1.5rem; } }
         .val-pos { color:#10b981; }
         .val-neg { color:#ef4444; }
         .val-neutral { color:#a1a1aa; }
@@ -83,38 +85,31 @@
 <body class="bg-darkBg text-slate-100 font-sans min-h-screen">
     <div id="table-tooltip"></div>
 
-    <main class="max-w-7xl mx-auto p-4 py-12 space-y-6">
+    <main class="max-w-7xl mx-auto px-3 py-6 sm:px-4 sm:py-12 space-y-4 sm:space-y-6">
 
         <!-- Header / World Clocks -->
         <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm flex flex-col gap-2">
-            <div class="flex justify-between items-center px-2">
-                <div>
-                    <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
-                    <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
-                </div>
-                <div class="flex items-center gap-3 flex-wrap justify-end">
-                    <button id="exportBtn" class="px-4 py-2 rounded-full bg-white text-black text-[10px] uppercase tracking-[0.25em] font-black hover:bg-zinc-200 transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-file-arrow-down"></i> Export Audit PDF
-                    </button>
-                </div>
+            <div class="flex flex-col items-center text-center gap-0.5 pt-1">
+                <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
+                <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
             </div>
             <div class="flex flex-row flex-nowrap justify-center gap-1 mt-1 overflow-x-auto pb-1">
-                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                <div class="h-16 w-20 sm:h-20 sm:w-24 min-w-[5rem] sm:min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
                     <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">New York</span><i id="ny-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
                     <p id="ny-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
                     <p id="ny-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
                 </div>
-                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                <div class="h-16 w-20 sm:h-20 sm:w-24 min-w-[5rem] sm:min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
                     <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">London</span><i id="london-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
                     <p id="london-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
                     <p id="london-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
                 </div>
-                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                <div class="h-16 w-20 sm:h-20 sm:w-24 min-w-[5rem] sm:min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
                     <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Sydney</span><i id="sydney-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
                     <p id="sydney-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
                     <p id="sydney-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
                 </div>
-                <div class="h-20 w-24 min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
+                <div class="h-16 w-20 sm:h-20 sm:w-24 min-w-[5rem] sm:min-w-[6rem] rounded-2xl border border-zinc-800 bg-zinc-950/70 p-2 text-center flex flex-col justify-center items-center">
                     <div class="flex items-center justify-center gap-1"><span class="text-[8px] uppercase tracking-[0.2em] text-slate-500">Tokyo</span><i id="tokyo-icon" class="fa-solid fa-sun text-amber-400 text-[9px]"></i></div>
                     <p id="tokyo-clock" class="mt-1 text-base font-black text-slate-100">--:--</p>
                     <p id="tokyo-offset" class="mt-1 text-[8px] text-slate-500">UTC</p>
@@ -125,60 +120,49 @@
         <div id="capture-area" class="space-y-6">
 
         <!-- Top Metric Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-emerald-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-percent"></i></div>
-                <p class="text-xs text-slate-400 font-bold">Gain (TWR)</p>
-                <h3 id="metric-twr-gain" class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">--%</h3>
-                <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> <span id="gain-method-subtext">Geometric compounding</span></p>
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
+                <p class="metric-label">Gain (TWR)</p>
+                <p id="metric-twr-gain" class="metric-value val-pos">--%</p>
             </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-blue-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-money-bill-trend-up"></i></div>
-                <p class="text-xs text-slate-400 font-bold">Net Profit</p>
-                <h3 id="metric-net-profit" class="text-2xl sm:text-3xl font-black text-slate-100 mt-1">$--</h3>
-                <p id="metric-roi" class="text-[10px] text-slate-500 mt-1">Profit value sum</p>
+            <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
+                <p class="metric-label">Net Profit</p>
+                <p id="metric-net-profit" class="metric-value val-neutral">$--</p>
+                <p id="metric-roi" class="hidden"></p>
             </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-indigo-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-wallet"></i></div>
-                <p class="text-xs text-slate-400 font-bold">Balance</p>
-                <h3 id="metric-balance" class="text-2xl sm:text-3xl font-black text-indigo-400 mt-1">$--</h3>
-                <p id="metric-deposits" class="text-[10px] text-slate-500 mt-1">Deposits: $--</p>
+            <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
+                <p class="metric-label">Balance</p>
+                <p id="metric-balance" class="metric-value val-neutral">$--</p>
+                <p id="metric-deposits" class="hidden"></p>
             </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-rose-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-circle-down"></i></div>
-                <p class="text-xs text-slate-400 font-bold">Max Drawdown</p>
-                <h3 id="metric-max-drawdown" class="text-2xl sm:text-3xl font-black text-rose-400 mt-1">--%</h3>
-                <p class="text-[10px] text-slate-500 mt-1">Max peak-to-trough drop</p>
+            <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
+                <p class="metric-label">Max Drawdown</p>
+                <p id="metric-max-drawdown" class="metric-value val-neg">--%</p>
             </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-purple-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-chart-line-down"></i></div>
-                <p class="text-xs text-slate-400 font-bold">Current Drawdown</p>
-                <h3 id="metric-current-drawdown" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">--%</h3>
-                <p class="text-[10px] text-slate-500 mt-1">From all-time peak</p>
+            <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
+                <p class="metric-label">Current Drawdown</p>
+                <p id="metric-current-drawdown" class="metric-value val-neg">--%</p>
             </div>
-            <div class="bg-darkCard p-4 rounded-xl border border-zinc-800 shadow-xl relative overflow-hidden group col-span-1">
-                <div class="absolute top-0 right-0 p-3 text-amber-500/10 text-5xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
                 <div class="flex items-center gap-2">
-                    <p class="text-xs text-slate-400 font-bold">Unrealized P/L</p>
+                    <p class="metric-label" style="margin-bottom:0">Unrealized P/L</p>
                     <span class="flex h-1.5 w-1.5 relative">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                     </span>
                 </div>
-                <h3 id="metric-unrealized-pl" class="text-2xl sm:text-3xl font-black text-amber-400 mt-1">$--</h3>
-                <p class="text-[10px] text-slate-500 mt-1 flex items-center gap-1">Live Feed (Sheet 2)</p>
+                <p id="metric-unrealized-pl" class="metric-value text-amber-400">$--</p>
             </div>
         </div>
 
         <!-- Main Chart & Sidebar Analytics -->
         <div class="grid grid-cols-1 gap-6">
-            <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 shadow-xl flex flex-col justify-between">
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xl flex flex-col justify-between">
                 <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
                     <div>
-                        <h2 class="text-sm font-bold text-slate-200">Equity Curve & Portfolio Gain</h2>
-                        <p class="text-xs text-slate-500">Track Time-Weighted Gain vs. Account Balance</p>
+                        <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Equity Curve & Portfolio Gain</h4>
                     </div>
-                    <div class="flex gap-3 flex-wrap">
+                    <div class="flex gap-2 flex-wrap">
                         <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
                             <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
                             <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
@@ -191,23 +175,23 @@
                         </div>
                     </div>
                 </div>
-                <div class="relative w-full h-[300px]">
+                <div class="relative w-full h-[220px] sm:h-[300px]">
                     <canvas id="equityChart"></canvas>
                     <div id="equity-live-dot">
                         <span id="equity-live-dot-ping"></span>
                         <span id="equity-live-dot-core"></span>
                     </div>
                 </div>
-                <div class="relative w-full h-[100px] mt-4">
+                <div class="relative w-full h-[80px] sm:h-[100px] mt-3 sm:mt-4">
                     <p class="text-[9px] font-black uppercase text-zinc-700 tracking-[0.3em] mb-1">Underwater Return Profile (%)</p>
                     <canvas id="drawdownChart"></canvas>
                 </div>
             </div>
         </div>
         <!-- Open Trades -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl flex flex-col">
             <div class="flex justify-between items-center mb-3">
-                <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-satellite-dish text-amber-400"></i> Open Positions (Unrealized)</h2>
+                <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Open Positions (Unrealized)</h4>
                 <span id="open-trades-count" class="text-xs bg-amber-900/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20">0 Active</span>
             </div>
             <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
@@ -237,9 +221,9 @@
         </div>
 
         <!-- Transaction Log -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl flex flex-col">
             <div class="flex justify-between items-center mb-3">
-                <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-list text-teal-400"></i> Detailed Transactions History (By Close Date)</h2>
+                <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Detailed Transactions History (By Close Date)</h4>
                 <span id="history-count" class="text-xs bg-zinc-800 text-slate-300 px-2 py-0.5 rounded-full">0 Entries</span>
             </div>
             <div class="overflow-x-auto rounded-lg border border-zinc-800 flex-1 max-h-[300px]">
@@ -269,9 +253,9 @@
         </div>
 
         <!-- Institutional Risk & Return Analytics -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Risk & Return Analytics</h4>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div class="metric-card"><p class="metric-label">Annualized CAGR</p><p id="stat-cagr" class="metric-value">-</p></div>
                 <div class="metric-card"><p class="metric-label">Avg. Monthly Gain</p><p id="stat-avg-monthly" class="metric-value">-</p></div>
                 <div class="metric-card"><p class="metric-label">Avg. Daily Gain</p><p id="stat-avg-daily" class="metric-value">-</p></div>
@@ -284,9 +268,9 @@
         </div>
 
         <!-- Risk Assessment -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Risk Assessment</h4>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div class="metric-card"><p class="metric-label">Parametric VaR (95%)</p><p id="stat-var" class="metric-value">-</p></div>
                 <div class="metric-card"><p class="metric-label">Profit Factor</p><p id="stat-pf" class="metric-value">-</p></div>
                 <div class="metric-card"><p class="metric-label">Recovery Factor</p><p id="stat-rec" class="metric-value">-</p></div>
@@ -314,11 +298,11 @@
         </div>
 
         <!-- Holding Period Distribution -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Holding Period Distribution</h4>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                <div class="h-[320px] relative"><canvas id="durationChart"></canvas></div>
-                <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 items-center">
+                <div class="h-[220px] sm:h-[320px] relative"><canvas id="durationChart"></canvas></div>
+                <div class="grid grid-cols-2 gap-3">
                     <div class="metric-card"><p class="metric-label">Avg Holding</p><p id="dur-avg" class="metric-value">-</p></div>
                     <div class="metric-card"><p class="metric-label">Max Holding</p><p id="dur-max" class="metric-value">-</p></div>
                     <div class="metric-card"><p class="metric-label">Min Holding</p><p id="dur-min" class="metric-value">-</p></div>
@@ -328,27 +312,27 @@
         </div>
 
         <!-- Temporal Attribution -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
                 <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Temporal Return Attribution</h4>
                 <p class="text-[10px] text-zinc-600 uppercase tracking-widest">Basis: Close Timestamp (Local Sheet Time)</p>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/60 h-[280px]">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div class="bg-zinc-900/30 p-3 sm:p-4 rounded-xl border border-zinc-800/60 h-[240px] sm:h-[280px]">
                     <p class="metric-label mb-2">Intraday Periodicity (Cum. %)</p>
-                    <div class="h-[220px] relative"><canvas id="hourlyChart"></canvas></div>
+                    <div class="h-[170px] sm:h-[220px] relative"><canvas id="hourlyChart"></canvas></div>
                 </div>
-                <div class="bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/60 h-[280px]">
+                <div class="bg-zinc-900/30 p-3 sm:p-4 rounded-xl border border-zinc-800/60 h-[240px] sm:h-[280px]">
                     <p class="metric-label mb-2">Day-of-Week Periodicity (Cum. %)</p>
-                    <div class="h-[220px] relative"><canvas id="dailyPatternChart"></canvas></div>
+                    <div class="h-[170px] sm:h-[220px] relative"><canvas id="dailyPatternChart"></canvas></div>
                 </div>
             </div>
         </div>
 
         <!-- Factor Attribution -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Factor Type Attribution (Long / Short)</h4>
-            <div id="distribution-stats" class="flex justify-between items-end mb-6"></div>
+            <div id="distribution-stats" class="flex justify-between items-end mb-4 sm:mb-6"></div>
             <div class="h-[28px] relative w-full mb-8"><canvas id="attributionPieChart"></canvas></div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
@@ -367,7 +351,7 @@
         </div>
 
         <!-- Risk of Ruin -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl overflow-hidden">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl overflow-hidden">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Probability of Capital Depletion</h4>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
@@ -406,9 +390,9 @@
         </div>
 
         <!-- Monte Carlo -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Monte Carlo Simulation</h4>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 <div class="metric-card bg-white/[0.02] border-white/10"><p class="metric-label">Sims / Sample Size</p><div class="flex items-baseline gap-2"><p id="mc-sim-count" class="text-xl font-light">-</p><span class="text-zinc-600 text-xs">/</span><p id="mc-trade-count" class="text-xl font-light">-</p></div></div>
                 <div class="metric-card"><p class="metric-label">Median Final Return</p><p id="mc-median-ret" class="metric-value">-</p></div>
                 <div class="metric-card"><p class="metric-label">Best Case (95%)</p><p id="mc-best-case" class="metric-value">-</p></div>
@@ -424,14 +408,14 @@
             </div>
             <div class="mt-6 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/60">
                 <p class="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] mb-4">Monte Carlo Path Distribution (Percentile Projections)</p>
-                <div class="h-[280px] w-full relative"><canvas id="mcChart"></canvas></div>
+                <div class="h-[200px] sm:h-[280px] w-full relative"><canvas id="mcChart"></canvas></div>
             </div>
         </div>
 
 
         <!-- Monthly Heatmap -->
         <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
-            <h2 class="text-sm font-bold text-slate-200 mb-6 flex items-center gap-2"><i class="fa-regular fa-calendar-days text-emerald-400"></i> Monthly Return Sheet (%)</h2>
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em] flex items-center gap-2"><i class="fa-regular fa-calendar-days text-emerald-400"></i> Monthly Return Sheet (%)</h4>
             <div class="overflow-x-auto">
                 <table class="monthly-table border-collapse border border-zinc-900">
                     <thead>
@@ -449,7 +433,7 @@
 
         <!-- Notional Exposure Matrix -->
         <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
-            <h2 class="text-sm font-bold text-slate-200 mb-6 flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-indigo-400"></i> Notional Exposure Matrix (Lots)</h2>
+            <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em] flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-indigo-400"></i> Notional Exposure Matrix (Lots)</h4>
             <div class="overflow-x-auto">
                 <table class="monthly-table border-collapse border border-zinc-900">
                     <thead>
@@ -466,7 +450,7 @@
         </div>
 
         <!-- Commission Rebate Audit -->
-        <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl">
+        <div class="bg-darkCard border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
             <h4 class="text-xs font-black uppercase text-zinc-500 mb-6 tracking-[0.3em]">Commission Rebate Audit</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div class="metric-card"><p class="metric-label">Total Cumulative Lots</p><p id="stat-total-lots" class="metric-value">-</p></div>
@@ -477,6 +461,11 @@
 
         </div><!-- /capture-area -->
 
+    <div class="flex justify-center py-10">
+        <button id="exportBtn" onclick="exportPDF()" class="px-6 py-3 sm:px-8 sm:py-4 rounded-full bg-white text-black text-[10px] uppercase tracking-[0.3em] sm:tracking-[0.4em] font-black hover:bg-zinc-100 transition-all flex items-center gap-2 sm:gap-3 shadow-2xl">
+            <i class="fa-solid fa-file-arrow-down text-sm"></i> Export Audit PDF
+        </button>
+    </div>
     </main>
 
     <script>
@@ -562,8 +551,9 @@
         }
         function getGreetingFromHour(hour) {
             if (hour >= 5 && hour < 12) return 'Good Morning, Perth!';
-            if (hour >= 12 && hour < 18) return 'Good Afternoon, Perth!';
-            return 'Good Evening, Perth!';
+            if (hour >= 12 && hour < 17) return 'Good Afternoon, Perth!';
+            if (hour >= 17 && hour < 21) return 'Good Evening, Perth!';
+            return 'Good Night, Perth!';
         }
         function updateWorldClocks() {
             const cities = [
@@ -1335,50 +1325,40 @@
 
             const datasetValues = activeChartType === 'gain' ? aggregatedData.map(item => parseFloat(item.gainPercent.toFixed(2))) : aggregatedData.map(item => parseFloat(item.balance.toFixed(2)));
             const labelString = activeChartType === 'gain' ? 'TWR Return Gain %' : 'Account Balance $';
-            const accentColor = activeChartType === 'gain' ? '#10b981' : '#3b82f6';
-            const gradientBg = ctx.createLinearGradient(0, 0, 0, 300);
-            if (activeChartType === 'gain') { gradientBg.addColorStop(0, 'rgba(16,185,129,0.25)'); gradientBg.addColorStop(1, 'rgba(16,185,129,0)'); }
-            else { gradientBg.addColorStop(0, 'rgba(59,130,246,0.25)'); gradientBg.addColorStop(1, 'rgba(59,130,246,0)'); }
-
-            // Live dot dataset — only the final (current) data point, shown as pulsing circle
-            const liveDotValues = datasetValues.map((v, i) => i === datasetValues.length - 1 ? v : null);
-
-            // Custom plugin: pulsing glow circle drawn on the final point every animation frame
+            // Live dot plugin — pulsing circle at current tail of line
             const liveDotPlugin = {
                 id: 'liveDot',
-                _phase: 0,
                 afterDraw(chart) {
-                    const dataset = chart.data.datasets[0];
                     const meta = chart.getDatasetMeta(0);
                     const lastPt = meta.data[meta.data.length - 1];
                     if (!lastPt) return;
                     const { x, y } = lastPt;
                     const ctx2 = chart.ctx;
-                    const t = (Date.now() % 1800) / 1800; // 1.8s cycle
+                    const t = (Date.now() % 1800) / 1800;
                     const outerR = 6 + 10 * t;
                     const alpha = (1 - t) * 0.6;
-                    const color = activeChartType === 'gain' ? '#10b981' : '#3b82f6';
-                    // Outer pulse ring
+                    // Determine dot color: for gain mode check value vs 0
+                    const lastVal = chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1];
+                    const dotColor = activeChartType === 'gain'
+                        ? (lastVal >= 0 ? '#10b981' : '#ef4444')
+                        : '#3b82f6';
+                    const dotAlphaColor = activeChartType === 'gain'
+                        ? (lastVal >= 0 ? `rgba(16,185,129,${alpha})` : `rgba(239,68,68,${alpha})`)
+                        : `rgba(59,130,246,${alpha})`;
                     ctx2.save();
                     ctx2.beginPath();
                     ctx2.arc(x, y, outerR, 0, Math.PI * 2);
-                    ctx2.strokeStyle = color.replace(')', `, ${alpha})`).replace('rgb', 'rgba').replace('#10b981', `rgba(16,185,129,${alpha})`).replace('#3b82f6', `rgba(59,130,246,${alpha})`);
+                    ctx2.strokeStyle = dotAlphaColor;
                     ctx2.lineWidth = 2;
                     ctx2.stroke();
-                    // Inner solid dot
                     ctx2.beginPath();
                     ctx2.arc(x, y, 5, 0, Math.PI * 2);
-                    ctx2.fillStyle = color === '#10b981' ? '#10b981' : '#3b82f6';
+                    ctx2.fillStyle = dotColor;
                     ctx2.fill();
                     ctx2.restore();
-                    // Re-trigger animation for continuous pulse
                     if (!chart._liveDotAnimating) {
                         chart._liveDotAnimating = true;
-                        const animate = () => {
-                            if (!chart.canvas) return;
-                            chart.draw();
-                            chart._liveDotRaf = requestAnimationFrame(animate);
-                        };
+                        const animate = () => { if (!chart.canvas) return; chart.draw(); chart._liveDotRaf = requestAnimationFrame(animate); };
                         animate();
                     }
                 },
@@ -1388,10 +1368,42 @@
                 }
             };
 
+            // Dynamic green/red line split at 0 for gain mode, solid blue for balance mode
+            const buildDynColor = (chart, pos, neg, neutral) => {
+                const { ctx: c2, chartArea, scales } = chart;
+                if (!chartArea || !scales.y) return neutral;
+                const zero = scales.y.getPixelForValue(0);
+                const top = chartArea.top, bottom = chartArea.bottom;
+                const range = bottom - top;
+                if (range <= 0) return neutral;
+                const stop = Math.max(0, Math.min(1, (zero - top) / range));
+                const g = c2.createLinearGradient(0, top, 0, bottom);
+                g.addColorStop(0, pos);
+                g.addColorStop(Math.max(0, stop - 0.001), pos);
+                g.addColorStop(Math.min(1, stop + 0.001), neg);
+                g.addColorStop(1, neg);
+                return g;
+            };
+
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 plugins: [liveDotPlugin],
-                data: { labels, datasets: [{ label: labelString, data: datasetValues, borderColor: accentColor, borderWidth: 2.5, backgroundColor: gradientBg, fill: true, tension: 0.1, pointRadius: aggregatedData.length < 50 ? 3 : 0, pointBackgroundColor: accentColor, pointHoverRadius: 6, pointHitRadius: 10 }] },
+                data: { labels, datasets: [{ label: labelString, data: datasetValues,
+                    borderColor: activeChartType === 'gain'
+                        ? (c) => buildDynColor(c.chart, '#10b981', '#ef4444', '#10b981')
+                        : '#3b82f6',
+                    borderWidth: 2.5,
+                    backgroundColor: activeChartType === 'gain'
+                        ? (c) => buildDynColor(c.chart, 'rgba(16,185,129,0.28)', 'rgba(239,68,68,0.28)', 'rgba(16,185,129,0.15)')
+                        : (c) => { const g = c.chart.ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(59,130,246,0.25)'); g.addColorStop(1,'rgba(59,130,246,0)'); return g; },
+                    fill: true, tension: 0.1,
+                    pointRadius: aggregatedData.length < 50 ? 3 : 0,
+                    pointBackgroundColor: (c) => {
+                        const v = c.raw;
+                        return activeChartType === 'gain' ? (v >= 0 ? '#10b981' : '#ef4444') : '#3b82f6';
+                    },
+                    pointHoverRadius: 6, pointHitRadius: 10
+                }] },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     animation: isFirstChartRender ? { duration: 800, easing: 'easeOutQuart' } : false,
@@ -1614,8 +1626,12 @@
             const sellPct = ((totalSell/total)*100).toFixed(1);
 
             document.getElementById('distribution-stats').innerHTML = `
-                <div class="space-y-1"><p class="text-[10px] font-black uppercase text-zinc-600 tracking-[0.3em]">Long Exposure</p><p class="text-4xl font-black tracking-tighter text-emerald-500">${buyPct}<span class="text-lg ml-1 font-light opacity-50">%</span></p></div>
-                <div class="space-y-1 text-right"><p class="text-[10px] font-black uppercase text-zinc-600 tracking-[0.3em]">Short Exposure</p><p class="text-4xl font-black tracking-tighter text-rose-500">${sellPct}<span class="text-lg ml-1 font-light opacity-50">%</span></p></div>
+                <div class="space-y-1"><p class="metric-label">Long Exposure</p><p class="text-4xl font-black tracking-tighter text-emerald-500">${buyPct}<span class="text-lg ml-1 font-light opacity-50">%</span></p></div>
+                <div class="space-y-1 text-center">
+                    <p class="metric-label">Total Trades</p>
+                    <p class="text-4xl font-black tracking-tighter val-neutral">${total}</p>
+                </div>
+                <div class="space-y-1 text-right"><p class="metric-label">Short Exposure</p><p class="text-4xl font-black tracking-tighter text-rose-500">${sellPct}<span class="text-lg ml-1 font-light opacity-50">%</span></p></div>
             `;
 
             ['BUY','SELL'].forEach(key => {
@@ -1848,7 +1864,7 @@
         // ============================================================
         // EXPORT TO PDF
         // ============================================================
-        document.getElementById('exportBtn').addEventListener('click', async () => {
+        async function exportPDF() {
             const { jsPDF } = window.jspdf;
             const area = document.getElementById('capture-area');
             const canvas = await html2canvas(area, { backgroundColor:'#000000', scale:2, useCORS:true, logging:false, windowWidth:1440 });
@@ -1858,7 +1874,7 @@
             const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pdf.save(`ROWRIC_LIVE_AUDIT_${Date.now()}.pdf`);
-        });
+        }
     </script>
 </body>
 </html>
