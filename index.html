@@ -266,11 +266,11 @@
                 <div class="flex items-center gap-2">
                     <p class="metric-label" style="margin-bottom:0">Unrealized P/L</p>
                     <span class="flex h-1.5 w-1.5 relative">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                     </span>
                 </div>
-                <p id="metric-unrealized-pl" class="metric-value text-amber-400">$--</p>
+                <p id="metric-unrealized-pl" class="metric-value val-neutral">$--</p>
             </div>
         </div>
 
@@ -744,7 +744,7 @@
             const countEl = document.getElementById('open-trades-count');
             const metricEl = document.getElementById('metric-unrealized-pl');
             if (countEl) countEl.textContent = 'Offline';
-            if (metricEl) { metricEl.textContent = '--'; metricEl.className = 'text-2xl sm:text-3xl font-black mt-1 text-slate-400'; }
+            if (metricEl) { metricEl.textContent = '$--'; metricEl.className = 'metric-value val-neutral'; }
             if (tbody) tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">${message}</td></tr>`;
         }
 
@@ -838,7 +838,14 @@
             const hours = Math.floor((totalSeconds % 86400) / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
-            return `${String(days).padStart(2,'0')}D:${String(hours).padStart(2,'0')}H:${String(minutes).padStart(2,'0')}M:${String(seconds).padStart(2,'0')}S`;
+            const S = String(seconds).padStart(2,'0') + 'S';
+            const M = String(minutes).padStart(2,'0') + 'M:';
+            const H = String(hours).padStart(2,'0') + 'H:';
+            const D = String(days).padStart(2,'0') + 'D:';
+            if (days > 0)    return D + H + M + S;
+            if (hours > 0)   return H + M + S;
+            if (minutes > 0) return M + S;
+            return S;
         }
         function formatDurationMinutes(mins) {
             if (isNaN(mins) || mins < 0) mins = 0;
@@ -968,7 +975,7 @@
 
             totalUnrealizedPL = totalUnrealized;
             countEl.textContent = `${trades.length} Active`;
-            metricEl.className = `text-2xl sm:text-3xl font-black mt-1 ${totalUnrealized >= 0 ? 'text-amber-400' : 'text-rose-400'}`;
+            metricEl.className = `metric-value ${totalUnrealized >= 0 ? 'val-pos' : 'val-neg'}`;
 
             // Refresh top cards AND equity chart on every live tick so unrealized moves the line
             if (processedList.length > 0) {
@@ -1529,8 +1536,24 @@
                 Object.keys(yearlyMap).sort().forEach(year => { labels.push(year); aggregatedData.push(yearlyMap[year]); });
             }
 
+            // Strip unrealized from the closed-trades line (it was baked in — rebuild without it)
+            const totalDepositsForExt = list.reduce((s, item) => item.isFunding && item.profit > 0 ? s + item.profit : s, 0);
+            const initDepForExt = totalDepositsForExt > 0 ? totalDepositsForExt : (list.length > 0 ? list[0].balance : 10000);
+
             const datasetValues = activeChartType === 'gain' ? aggregatedData.map(item => parseFloat(item.gainPercent.toFixed(2))) : aggregatedData.map(item => parseFloat(item.balance.toFixed(2)));
             const labelString = activeChartType === 'gain' ? 'TWR Return Gain %' : 'Account Balance $';
+
+            // Unrealized extension: last point → current equity including open P/L
+            const lastClosedGain = aggregatedData.length > 0 ? aggregatedData[aggregatedData.length - 1].gainPercent : 0;
+            const lastClosedBal  = aggregatedData.length > 0 ? aggregatedData[aggregatedData.length - 1].balance  : 0;
+            const liveGain = parseFloat((lastClosedGain).toFixed(2));
+            const liveBal  = parseFloat((lastClosedBal).toFixed(2));
+
+            // Extension values: null for all but last two points (anchor + live tip)
+            const extValues = datasetValues.map(() => null);
+            if (extValues.length > 0) extValues[extValues.length - 1] = activeChartType === 'gain' ? liveGain : liveBal;
+            // The "tip" is the unrealized-adjusted final value (already included in datasetValues last point)
+            // We only need the dashed segment to visually distinguish it — it rides the last data point
             // Live dot plugin — pulsing circle at current tail of line
             const liveDotPlugin = {
                 id: 'liveDot',
@@ -1594,22 +1617,57 @@
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 plugins: [liveDotPlugin],
-                data: { labels, datasets: [{ label: labelString, data: datasetValues,
-                    borderColor: activeChartType === 'gain'
-                        ? (c) => buildDynColor(c.chart, '#10b981', '#ef4444', '#10b981')
-                        : '#3b82f6',
-                    borderWidth: 2.5,
-                    backgroundColor: activeChartType === 'gain'
-                        ? (c) => buildDynColor(c.chart, 'rgba(16,185,129,0.28)', 'rgba(239,68,68,0.28)', 'rgba(16,185,129,0.15)')
-                        : (c) => { const g = c.chart.ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(59,130,246,0.25)'); g.addColorStop(1,'rgba(59,130,246,0)'); return g; },
-                    fill: true, tension: 0.1,
-                    pointRadius: aggregatedData.length < 50 ? 3 : 0,
-                    pointBackgroundColor: (c) => {
-                        const v = c.raw;
-                        return activeChartType === 'gain' ? (v >= 0 ? '#10b981' : '#ef4444') : '#3b82f6';
+                data: { labels, datasets: [
+                    // Main closed-trades line
+                    { label: labelString, data: datasetValues,
+                        borderColor: activeChartType === 'gain'
+                            ? (c) => buildDynColor(c.chart, '#10b981', '#ef4444', '#10b981')
+                            : '#3b82f6',
+                        borderWidth: 2.5,
+                        backgroundColor: activeChartType === 'gain'
+                            ? (c) => buildDynColor(c.chart, 'rgba(16,185,129,0.28)', 'rgba(239,68,68,0.28)', 'rgba(16,185,129,0.15)')
+                            : (c) => { const g = c.chart.ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(59,130,246,0.25)'); g.addColorStop(1,'rgba(59,130,246,0)'); return g; },
+                        fill: true, tension: 0.1,
+                        pointRadius: aggregatedData.length < 50 ? 3 : 0,
+                        pointBackgroundColor: (c) => {
+                            const v = c.raw;
+                            return activeChartType === 'gain' ? (v >= 0 ? '#10b981' : '#ef4444') : '#3b82f6';
+                        },
+                        pointHoverRadius: 6, pointHitRadius: 10
                     },
-                    pointHoverRadius: 6, pointHitRadius: 10
-                }] },
+                    // Dashed unrealized extension — shows the last point projected with open P/L
+                    // The last two values are: anchor (last closed) + live tip (last closed + unrealized)
+                    (() => {
+                        const n = datasetValues.length;
+                        if (n < 2 || totalUnrealizedPL === 0) return { data: [], label: '' };
+                        // Recalculate the "pure closed" last value (without unrealized)
+                        const pureClosedGain = list.length > 0 ? list[list.length - 1].gainPercent : 0;
+                        const pureClosedBal  = list.length > 0 ? list[list.length - 1].balance  : 0;
+                        const pureVal = parseFloat((activeChartType === 'gain' ? pureClosedGain : pureClosedBal).toFixed(2));
+                        const liveVal = datasetValues[n - 1]; // already includes unrealized
+                        // Build sparse array: null everywhere except last 2 indices
+                        const extData = Array(n).fill(null);
+                        extData[n - 2] = pureVal;  // anchor at penultimate point
+                        extData[n - 1] = liveVal;  // tip = current live value
+                        const extColor = activeChartType === 'gain'
+                            ? (liveVal >= 0 ? '#10b981' : '#ef4444')
+                            : '#3b82f6';
+                        return {
+                            label: 'Unrealized Extension',
+                            data: extData,
+                            borderColor: extColor,
+                            borderWidth: 2,
+                            borderDash: [6, 4],
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            tension: 0,
+                            pointRadius: (c) => c.dataIndex === n - 1 ? 0 : 0, // dot handled by liveDotPlugin
+                            pointHoverRadius: 4,
+                            pointHitRadius: 8,
+                            spanGaps: false
+                        };
+                    })()
+                ] },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     animation: isFirstChartRender ? { duration: 800, easing: 'easeOutQuart' } : false,
