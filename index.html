@@ -175,24 +175,19 @@
                     </div>
 
                     <!-- Vertical single-column keypad (shown on phone only, hidden on tablet/pc via JS) -->
-                    <div id="pin-vertical" style="display:none;flex-direction:column;gap:8px;">
-                        <div style="display:flex;gap:8px;">
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('1')">1</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('2')">2</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('3')">3</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('4')">4</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('5')">5</button>
-                        </div>
-                        <div style="display:flex;gap:8px;">
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('6')">6</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('7')">7</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('8')">8</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('9')">9</button>
-                            <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('0')">0</button>
-                        </div>
-                        <div style="display:flex;justify-content:flex-end;padding-right:0;">
-                            <button class="pin-key del" style="width:58px;height:40px;font-size:.85rem;" onclick="pinDel()">⌫</button>
-                        </div>
+                    <div id="pin-vertical" style="display:none;grid-template-columns:repeat(3,58px);gap:8px;justify-content:center;">
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('1')">1</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('2')">2</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('3')">3</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('4')">4</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('5')">5</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('6')">6</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('7')">7</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('8')">8</button>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('9')">9</button>
+                        <div></div>
+                        <button class="pin-key" style="width:58px;height:52px;font-size:1.1rem;" onclick="pinPress('0')">0</button>
+                        <button class="pin-key del" style="width:58px;height:52px;font-size:.85rem;" onclick="pinDel()">⌫</button>
                     </div>
 
                 </div>
@@ -274,36 +269,55 @@
                 </div>
             </div>
 
-            <!-- Main Chart & Sidebar Analytics -->
+            <!-- Main Chart & Sidebar Analytics (toggles between Equity Chart and US News) -->
             <div class="grid grid-cols-1 gap-6">
                 <div class="bg-darkCard border border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xl flex flex-col justify-between">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
                         <div>
-                            <h4 class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Equity Curve & Portfolio Gain</h4>
+                            <h4 id="main-view-title" class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Equity Curve & Portfolio Gain</h4>
                         </div>
                         <div class="flex gap-2 flex-wrap">
                             <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
-                                <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
-                                <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
+                                <button onclick="switchMainView('chart')" id="btn-view-chart" class="px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white flex items-center gap-1.5"><i class="fa-solid fa-chart-line text-[10px]"></i> Chart</button>
+                                <button onclick="switchMainView('news')" id="btn-view-news" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-flag-usa text-[10px]"></i> US News</button>
                             </div>
-                            <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
-                                <button onclick="changePeriodMode('trade')" id="btn-period-trade" class="px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white">Trade</button>
-                                <button onclick="changePeriodMode('daily')" id="btn-period-daily" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Daily</button>
-                                <button onclick="changePeriodMode('monthly')" id="btn-period-monthly" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Monthly</button>
-                                <button onclick="changePeriodMode('yearly')" id="btn-period-yearly" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Yearly</button>
+                            <div id="chart-mode-controls" class="flex gap-2 flex-wrap">
+                                <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
+                                    <button onclick="changeChartType('gain')" id="btn-chart-gain" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white shadow">Gain %</button>
+                                    <button onclick="changeChartType('balance')" id="btn-chart-balance" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Balance $</button>
+                                </div>
+                                <div class="flex gap-1 bg-black p-1 rounded-lg border border-zinc-800">
+                                    <button onclick="changePeriodMode('trade')" id="btn-period-trade" class="px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white">Trade</button>
+                                    <button onclick="changePeriodMode('daily')" id="btn-period-daily" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Daily</button>
+                                    <button onclick="changePeriodMode('monthly')" id="btn-period-monthly" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Monthly</button>
+                                    <button onclick="changePeriodMode('yearly')" id="btn-period-yearly" class="px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200">Yearly</button>
+                                </div>
                             </div>
+                            <span id="news-updated-at" class="hidden text-[9px] text-zinc-600 uppercase tracking-widest self-center"></span>
                         </div>
                     </div>
-                    <div class="relative w-full h-[220px] sm:h-[300px]">
-                        <canvas id="equityChart"></canvas>
-                        <div id="equity-live-dot">
-                            <span id="equity-live-dot-ping"></span>
-                            <span id="equity-live-dot-core"></span>
+
+                    <!-- Chart view -->
+                    <div id="main-chart-view">
+                        <div class="relative w-full h-[220px] sm:h-[300px]">
+                            <canvas id="equityChart"></canvas>
+                            <div id="equity-live-dot">
+                                <span id="equity-live-dot-ping"></span>
+                                <span id="equity-live-dot-core"></span>
+                            </div>
+                        </div>
+                        <div class="relative w-full h-[80px] sm:h-[100px] mt-3 sm:mt-4">
+                            <p class="text-[9px] font-black uppercase text-zinc-700 tracking-[0.3em] mb-1">Underwater Return Profile (%)</p>
+                            <canvas id="drawdownChart"></canvas>
                         </div>
                     </div>
-                    <div class="relative w-full h-[80px] sm:h-[100px] mt-3 sm:mt-4">
-                        <p class="text-[9px] font-black uppercase text-zinc-700 tracking-[0.3em] mb-1">Underwater Return Profile (%)</p>
-                        <canvas id="drawdownChart"></canvas>
+
+                    <!-- US News view (hidden until toggled) -->
+                    <div id="main-news-view" class="hidden">
+                        <p class="text-[9px] text-zinc-600 uppercase tracking-widest mb-3">Source: ForexFactory Weekly Calendar &middot; High Impact USD events only &middot; times shown 24hr UTC+7 &middot; auto-refreshes every 5 min</p>
+                        <div id="news-calendar-list" class="space-y-2 h-[300px] sm:h-[400px] overflow-y-auto pr-1">
+                            <div class="text-center py-8 text-zinc-500 text-xs">Loading economic calendar…</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -718,7 +732,7 @@
                 if (!grid || !vert) return;
                 if (isPhone) {
                     grid.style.display = 'none';
-                    vert.style.display = 'flex';
+                    vert.style.display = 'grid';
                     // On phone: put brand above, keypad below — already column
                 } else {
                     grid.style.display = 'grid';
@@ -735,6 +749,8 @@
                 fetchOpenTrades();
                 setInterval(fetchOpenTrades, 1000);
                 setInterval(() => fetchAndParseCSV(false), 15000);
+                fetchNewsCalendar();
+                setInterval(fetchNewsCalendar, 5 * 60 * 1000); // economic calendar rarely changes — 5 min is plenty
             };
 
             // ============================================================
@@ -804,6 +820,179 @@
                 const perthHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Australia/Perth' }).format(new Date()), 10);
                 const greetingEl = document.getElementById('perth-greeting');
                 if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour);
+            }
+
+            // ============================================================
+            // UPCOMING US ECONOMIC NEWS (ForexFactory weekly calendar feed)
+            // ============================================================
+            const NEWS_CALENDAR_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.xml';
+
+            // A static HTML file has no backend of its own, so if the feed doesn't send
+            // permissive CORS headers for this page's origin, a direct fetch() is rejected
+            // by the browser before any response is even seen. Try the direct request first,
+            // then fall back through a couple of public read-only CORS proxies so the feed
+            // still loads. Only the URL of a public XML feed is passed through — no user or
+            // account data ever goes through these proxies.
+            function fetchTextWithFallback(url) {
+                const attempts = [
+                    () => fetch(url, { cache: 'no-store' }),
+                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { cache: 'no-store' }),
+                    () => fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`, { cache: 'no-store' }),
+                    () => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { cache: 'no-store' })
+                ];
+
+                const tryNext = (idx) => {
+                    if (idx >= attempts.length) return Promise.reject(new Error('All fetch attempts (direct + proxies) failed.'));
+                    return attempts[idx]()
+                        .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
+                        .catch(err => {
+                            console.warn(`News calendar fetch attempt ${idx + 1}/${attempts.length} failed`, err);
+                            return tryNext(idx + 1);
+                        });
+                };
+                return tryNext(0);
+            }
+
+            function fetchNewsCalendar() {
+                fetchTextWithFallback(`${NEWS_CALENDAR_URL}?t=${Date.now()}`)
+                    .then(xmlText => {
+                        const parser = new DOMParser();
+                        const xml = parser.parseFromString(xmlText, 'text/xml');
+                        if (xml.querySelector('parsererror')) throw new Error('Feed returned malformed XML.');
+                        const events = Array.from(xml.querySelectorAll('event')).map(ev => ({
+                            title: ev.querySelector('title')?.textContent.trim() || 'Untitled Event',
+                            country: ev.querySelector('country')?.textContent.trim() || '',
+                            date: ev.querySelector('date')?.textContent.trim() || '',
+                            time: ev.querySelector('time')?.textContent.trim() || '',
+                            impact: ev.querySelector('impact')?.textContent.trim() || 'Low',
+                            forecast: ev.querySelector('forecast')?.textContent.trim() || '',
+                            previous: ev.querySelector('previous')?.textContent.trim() || '',
+                            actual: ev.querySelector('actual')?.textContent.trim() || '',
+                            url: ev.querySelector('url')?.textContent.trim() || ''
+                        }));
+                        if (events.length === 0) throw new Error('Feed parsed but contained no events.');
+                        renderNewsCalendar(events);
+                    })
+                    .catch(err => {
+                        console.error('Economic calendar fetch failed after all fallbacks', err);
+                        showNewsCalendarError('Unable to load economic calendar feed (network or CORS issue). Will retry automatically.');
+                    });
+            }
+
+            // Feed dates are "MM-DD-YYYY", times are like "12:30pm", "All Day", "Tentative", or blank.
+            // Returns a naive Date built straight from those numbers (no timezone applied yet —
+            // the +7h correction to Bangkok time happens where this is consumed).
+            function parseCalendarDateTime(dateStr, timeStr) {
+                if (!dateStr) return null;
+                const parts = dateStr.split('-');
+                if (parts.length !== 3) return null;
+                const month = parseInt(parts[0], 10) - 1;
+                const day = parseInt(parts[1], 10);
+                const year = parseInt(parts[2], 10);
+                if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+
+                let hours = 0, minutes = 0;
+                if (timeStr) {
+                    const m = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+                    if (m) {
+                        hours = parseInt(m[1], 10) % 12;
+                        minutes = parseInt(m[2], 10);
+                        if (m[3].toLowerCase() === 'pm') hours += 12;
+                    }
+                }
+                const dt = new Date(year, month, day, hours, minutes);
+                return isNaN(dt.getTime()) ? null : dt;
+            }
+
+            // Current wall-clock time in Asia/Bangkok, expressed as a naive Date built the same
+            // way parseCalendarDateTime builds its values — so the two are directly comparable
+            // once the feed time has been shifted +7h below.
+            function getBangkokNowNaive() {
+                const parts = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                }).formatToParts(new Date());
+                const get = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+                let hour = get('hour');
+                if (hour === 24) hour = 0;
+                return new Date(get('year'), get('month') - 1, get('day'), hour, get('minute'), get('second'));
+            }
+
+            function formatTime24(dt) {
+                const hh = String(dt.getHours()).padStart(2, '0');
+                const mm = String(dt.getMinutes()).padStart(2, '0');
+                return `${hh}:${mm}`;
+            }
+
+            function newsImpactStyle(impact) {
+                switch ((impact || '').toLowerCase()) {
+                    case 'high':    return { border: 'border-rose-500/30',   bg: 'bg-rose-500/5',   text: 'text-rose-400' };
+                    case 'medium':  return { border: 'border-amber-500/30',  bg: 'bg-amber-500/5',  text: 'text-amber-400' };
+                    case 'holiday': return { border: 'border-blue-500/30',   bg: 'bg-blue-500/5',   text: 'text-blue-400' };
+                    default:        return { border: 'border-zinc-800',      bg: 'bg-zinc-900/20',  text: 'text-zinc-500' };
+                }
+            }
+
+            function showNewsCalendarError(message) {
+                const list = document.getElementById('news-calendar-list');
+                if (list) list.innerHTML = `<div class="text-center py-8 text-zinc-500 text-xs">${message}</div>`;
+            }
+
+            function renderNewsCalendar(events) {
+                const list = document.getElementById('news-calendar-list');
+                const updatedEl = document.getElementById('news-updated-at');
+                if (!list) return;
+
+                const usdEvents = events.filter(e => e.country === 'USD' && (e.impact || '').toLowerCase() === 'high');
+                if (usdEvents.length === 0) {
+                    list.innerHTML = '<div class="text-center py-8 text-zinc-500 text-xs">No high-impact USD events this week.</div>';
+                    return;
+                }
+
+                const nowBangkok = getBangkokNowNaive();
+                const parsed = usdEvents
+                    .map(e => {
+                        const rawDt = parseCalendarDateTime(e.date, e.time);
+                        // Shift the feed's published time +7 hours (per the trading account's
+                        // Bangkok/UTC+7 reference), then display/sort/compare on that basis.
+                        const dt = rawDt ? new Date(rawDt.getTime() + 7 * 60 * 60 * 1000) : null;
+                        return { ...e, dt };
+                    })
+                    .sort((a, b) => (a.dt ? a.dt.getTime() : 0) - (b.dt ? b.dt.getTime() : 0));
+
+                list.innerHTML = '';
+                parsed.forEach(e => {
+                    const isPast = e.dt && e.dt.getTime() < nowBangkok.getTime();
+                    const style = newsImpactStyle(e.impact);
+                    const dateLabel = e.dt ? e.dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : e.date;
+                    const timeLabel = e.dt ? formatTime24(e.dt) : (e.time || '—');
+                    const hasActual = e.actual && e.actual.length > 0;
+
+                    const row = document.createElement('a');
+                    row.href = e.url || '#';
+                    row.target = '_blank';
+                    row.rel = 'noopener noreferrer';
+                    row.className = `flex items-center gap-3 rounded-lg border px-3 py-2 transition-all hover:brightness-125 ${style.border} ${style.bg} ${isPast ? 'opacity-40' : ''}`;
+                    row.innerHTML = `
+                        <div class="flex flex-col items-center justify-center min-w-[68px] text-center">
+                            <span class="text-[9px] uppercase tracking-widest text-zinc-500">${dateLabel}</span>
+                            <span class="text-xs font-black ${style.text}">${timeLabel}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-200 truncate">${e.title}</p>
+                            <p class="text-[9px] uppercase tracking-widest ${style.text}">${e.impact} Impact${isPast ? ' &middot; Released' : ''}</p>
+                        </div>
+                        <div class="flex gap-4 text-right shrink-0">
+                            ${hasActual ? `<div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Actual</p><p class="text-xs font-mono font-black text-white">${e.actual}</p></div>` : ''}
+                            <div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Forecast</p><p class="text-xs font-mono text-slate-300">${e.forecast || '—'}</p></div>
+                            <div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Previous</p><p class="text-xs font-mono text-slate-400">${e.previous || '—'}</p></div>
+                        </div>
+                    `;
+                    list.appendChild(row);
+                });
+
+
+                if (updatedEl) updatedEl.textContent = `Updated ${now.toLocaleTimeString()}`;
             }
 
             function isHTMLResponse(dataRows) {
@@ -1627,6 +1816,42 @@
                     // ============================================================
             // CHART CONTROLS
             // ============================================================
+            let activeMainView = 'chart';
+
+            function switchMainView(view) {
+                activeMainView = view;
+                const chartView = document.getElementById('main-chart-view');
+                const newsView = document.getElementById('main-news-view');
+                const chartControls = document.getElementById('chart-mode-controls');
+                const newsUpdatedEl = document.getElementById('news-updated-at');
+                const titleEl = document.getElementById('main-view-title');
+                const btnChart = document.getElementById('btn-view-chart');
+                const btnNews = document.getElementById('btn-view-news');
+
+                const activeCls = "px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white flex items-center gap-1.5";
+                const inactiveCls = "px-3 py-1 text-xs rounded font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5";
+
+                if (view === 'news') {
+                    chartView.classList.add('hidden');
+                    newsView.classList.remove('hidden');
+                    chartControls.classList.add('hidden');
+                    newsUpdatedEl.classList.remove('hidden');
+                    titleEl.textContent = 'Upcoming US Economic News';
+                    btnNews.className = activeCls;
+                    btnChart.className = inactiveCls;
+                } else {
+                    newsView.classList.add('hidden');
+                    chartView.classList.remove('hidden');
+                    chartControls.classList.remove('hidden');
+                    newsUpdatedEl.classList.add('hidden');
+                    titleEl.textContent = 'Equity Curve & Portfolio Gain';
+                    btnChart.className = activeCls;
+                    btnNews.className = inactiveCls;
+                    // Charts don't redraw while their canvas is hidden — force a redraw now that it's visible again
+                    if (processedList.length > 0) renderChart(processedList);
+                }
+            }
+
             function changeChartType(type) {
                 activeChartType = type;
                 const btnGain = document.getElementById('btn-chart-gain');
