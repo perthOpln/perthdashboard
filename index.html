@@ -199,7 +199,7 @@
 
         <div id="table-tooltip"></div>
 
-        <main class="max-w-7xl mx-auto px-3 py-6 sm:px-4 sm:py-12 space-y-4 sm:space-y-6">
+        <main id="main-content" class="max-w-7xl mx-auto px-3 py-6 sm:px-4 sm:py-12 space-y-4 sm:space-y-6" style="display: none;">
 
             <!-- Header / World Clocks -->
             <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm flex flex-col gap-2">
@@ -698,7 +698,9 @@
                     updatePinDots('success');
                     setTimeout(() => {
                         const overlay = document.getElementById('pin-overlay');
+                        const mainContent = document.getElementById('main-content');
                         overlay.classList.add('fade-out');
+                        mainContent.style.display = 'block';
                         setTimeout(() => overlay.style.display = 'none', 650);
                     }, 350);
                 } else {
@@ -719,7 +721,8 @@
 
             // Also allow physical keyboard input
             document.addEventListener('keydown', (e) => {
-                if (document.getElementById('pin-overlay').style.display === 'none') return;
+                const mainContent = document.getElementById('main-content');
+                if (mainContent.style.display !== 'none') return;
                 if (e.key >= '0' && e.key <= '9') pinPress(e.key);
                 else if (e.key === 'Backspace') pinDel();
             });
@@ -2622,4 +2625,4 @@
             }
         </script>
     </body>
-    </html>
+    </html> 
