@@ -1277,8 +1277,7 @@
             function getPortfolioChecksum(data) {
                 if (!Array.isArray(data)) return '';
                 const count = data.length;
-                const lastRows = data.slice(Math.max(0, count - 3));
-                const content = lastRows.map(row => Object.values(row).join('|')).join('||');
+                const content = data.map(row => Object.values(row).join('|')).join('||');
                 return `${count}::${content}`;
             }
 
