@@ -594,7 +594,7 @@
             <!-- Max Drawdown Heatmap -->
             <div class="bg-darkCard border border-zinc-800 rounded-xl p-6 shadow-xl flex flex-col overflow-hidden">
                 <h4 class="text-xs font-black uppercase text-zinc-500 mb-2 tracking-[0.3em] flex items-center gap-2"><i class="fa-solid fa-chart-line text-rose-400"></i> Max Drawdown Heatmap (%)</h4>
-                <p class="text-[10px] text-zinc-600 uppercase tracking-widest mb-6">Deepest peak-to-valley drawdown reached during each period (High-Water Mark basis, live-updated with unrealized P/L)</p>
+                <p class="text-[10px] text-zinc-600 uppercase tracking-widest mb-6">Deepest peak-to-valley drawdown reached during each period (High-Water Mark basis)</p>
                 <div class="overflow-x-auto">
                     <table class="monthly-table border-collapse border border-zinc-900">
                         <thead>
@@ -674,11 +674,23 @@
             let portfolioDataChecksum = '';
             let latestPortfolioBalance = NaN;
             let totalUnrealizedPL = 0;
+            let sharedInitialDeposit = 10000;
+            let sharedUnrealizedGainPercent = 0;
             let isFirstChartRender = true;
             let isFirstDrawdownRender = true;
 
             let columnMapping = { date:'', profit:'', balance:'', type:'', openDate:'', symbol:'', volume:'', openPrice:'', closePrice:'', magic:'' };
             let openTradeColumnMapping = { time:'', status:'', symbol:'', type:'', volume:'', openPrice:'', currentPrice:'', takeProfit:'', stopLoss:'', commission:'', swap:'', profit:'' };
+
+            // ============================================================
+            // SHARED UNREALIZED VALUE COMPUTATION
+            // ============================================================
+            function recomputeSharedUnrealized(list, totalDeposits) {
+                sharedInitialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
+                // Calculate unrealized as percentage of current balance (not initial deposit)
+                const currentBalance = list.length > 0 ? list[list.length - 1].balance : sharedInitialDeposit;
+                sharedUnrealizedGainPercent = currentBalance > 0 ? (totalUnrealizedPL / currentBalance) * 100 : 0;
+            }
 
             // Sync inputs to initial values
             document.getElementById('rfr-input').value = ANNUAL_RISK_FREE_RATE.toFixed(2);
@@ -1209,11 +1221,12 @@
                 countEl.textContent = `${trades.length} Active`;
                 metricEl.className = `metric-value ${totalUnrealized >= 0 ? 'val-pos' : 'val-neg'}`;
 
-                // Refresh top cards AND equity chart on every live tick so unrealized moves the line
+                // Refresh top cards on every live tick
                 if (processedList.length > 0) {
+                    recomputeSharedUnrealized(processedList, cachedTotalDeposits);
                     updateDashboardMetrics(processedList, cachedTotalDeposits, cachedTotalWithdrawals);
-                    renderChart(processedList);  // lightweight — just redraws the existing data+unrealized tail
-                    renderDrawdownHeatmap(processedList); // live-refresh the monthly/yearly drawdown heatmap too
+                    renderChart(processedList);
+                    renderDrawdownHeatmap(processedList);
                 }
 
                 tbody.innerHTML = '';
@@ -1419,6 +1432,14 @@
                         currentBalance = !isNaN(tx.providedBalance) ? tx.providedBalance : tx.profit;
                         if (currentBalance >= 0) totalDeposits += currentBalance; else totalWithdrawals += Math.abs(currentBalance);
                         isDepositOrWithdrawal = true;
+                        // Reset cumulative gains to 0 for the first transaction (baseline)
+                        currentCumulativeTWR = 1.0;
+                        currentCumulativeAdditive = 0.0;
+                        // For the first transaction, adjust balance to remove any trading-related P/L
+                        // to ensure it represents pure funding amount
+                        if (!isDepositOrWithdrawal && netTradeProfit !== 0) {
+                            currentBalance = currentBalance - netTradeProfit;
+                        }
                     } else {
                         if (!isNaN(tx.providedBalance)) {
                             currentBalance = tx.providedBalance;
@@ -1445,6 +1466,12 @@
                         currentCumulativeAdditive += (r * 100);
                     }
                     let currentGainPercent = gainCalculationMethod === 'additive' ? currentCumulativeAdditive : (currentCumulativeTWR - 1.0) * 100;
+                    
+                    // Force first transaction to 0% gain to establish proper baseline
+                    if (idx === 0) {
+                        currentGainPercent = 0;
+                        tradeReturnPercent = 0;
+                    }
 
                     newProcessedList.push({
                         date: tx.date, rawDate: tx.rawDate, openDate: tx.openDate, rawOpenDate: tx.rawOpenDate,
@@ -1457,6 +1484,7 @@
                 processedList = newProcessedList;
                 cachedTotalDeposits = totalDeposits;
                 cachedTotalWithdrawals = totalWithdrawals;
+                recomputeSharedUnrealized(processedList, totalDeposits);
 
                 updateDashboardMetrics(processedList, totalDeposits, totalWithdrawals);
                 generateMonthlyReturns(processedList);
@@ -1484,60 +1512,58 @@
                 const finalGain = finalRow.gainPercent;
                 const finalBalance = finalRow.balance;
 
-                const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
-                const unrealizedGainPercent = (totalUnrealizedPL / initialDeposit) * 100;
-                const finalGainWithUnrealized = finalGain + unrealizedGainPercent;
+                // Use shared initialDeposit and unrealizedGainPercent (computed once in recomputeSharedUnrealized)
+                const initialDeposit = sharedInitialDeposit;
+                const unrealizedGainPercent = sharedUnrealizedGainPercent;
+
+                // Calculate final gain (chart now shows closed trades only)
+                const lastIndex = list.length - 1;
+                const chartFinalGain = lastIndex === 0 ? 0 : list[lastIndex].gainPercent;
+                const finalGainWithUnrealized = chartFinalGain + unrealizedGainPercent;
                 const finalBalanceWithUnrealized = finalBalance + totalUnrealizedPL;
 
-                let totalNetProfit = list.reduce((sum, item) => item.isFunding ? sum : sum + item.profit, 0) + totalUnrealizedPL;
+                // Combined gain formula: ((100 + % GAIN TWR) + % GAIN IN UNREALIZED P/L) - 100
+                const combinedGain = ((100 + chartFinalGain) + unrealizedGainPercent) - 100;
 
-                document.getElementById('metric-twr-gain').textContent = finalGainWithUnrealized.toFixed(2) + '%';
+                console.log('GAIN calculation - chartFinalGain:', chartFinalGain, 'unrealizedGainPercent:', unrealizedGainPercent, 'combinedGain:', combinedGain, 'totalUnrealizedPL:', totalUnrealizedPL);
+
+                let totalNetProfit = list.reduce((sum, item, idx) => (idx === 0 || item.isFunding) ? sum : sum + item.profit, 0) + totalUnrealizedPL;
+
+                document.getElementById('metric-twr-gain').textContent = combinedGain.toFixed(2) + '%';
                 document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
                 document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
                 document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined,{maximumFractionDigits:2});
                 let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
                 document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
 
-                // ---- Max & Current Drawdown (HWM basis) ----
-                // Historical (closed-trade) high-water mark and drawdown, computed purely from
-                // closed data first. The live unrealized P/L is then layered on top of the LAST
-                // point only, so a floating loss can push equity below the historical peak (or a
-                // floating gain can set a brand-new peak) in real time, every 1s tick.
-                let peakGain = -Infinity, peakBalance = -Infinity, maxDrawdown = 0, maxDrawdownCash = 0;
-                list.forEach(item => {
-                    if (item.gainPercent > peakGain) peakGain = item.gainPercent;
-                    const dd = peakGain - item.gainPercent;
-                    if (dd > maxDrawdown) maxDrawdown = dd;
-                    if (item.balance > peakBalance) peakBalance = item.balance;
-                    const ddCash = peakBalance - item.balance;
-                    if (ddCash > maxDrawdownCash) maxDrawdownCash = ddCash;
+                // ---- Max & Current Drawdown (Peak-to-Trough on Gain %) ----
+                // Look at per-trade period: find highest gain % and lowest gain %, then calculate drawdown
+                let highestGain = -Infinity, lowestGain = Infinity;
+                list.forEach((item, idx) => {
+                    // Use same gain calculation as chart: first at 0%, no unrealized
+                    const adjustedGain = idx === 0 ? 0 : item.gainPercent;
+                    if (adjustedGain > highestGain) highestGain = adjustedGain;
+                    if (adjustedGain < lowestGain) lowestGain = adjustedGain;
                 });
 
-                // Live equity = last closed point + current floating (unrealized) P/L
-                const currentEquityGain = finalGain + unrealizedGainPercent;
-                const currentEquityBalance = finalBalance + totalUnrealizedPL;
+                // Convert to absolute values: (100 + gain%) and calculate drawdown from peak to trough
+                const peakValue = 100 + highestGain;
+                const troughValue = 100 + lowestGain;
+                const maxDrawdown = peakValue > 0 ? ((peakValue - troughValue) / peakValue) * 100 : 0;
 
-                // The effective peak is whichever is higher: the historical closed-trade peak,
-                // or right now (if unrealized gains just pushed us to a fresh all-time high).
-                const effectivePeakGain = Math.max(peakGain, currentEquityGain);
-                const effectivePeakBalance = Math.max(peakBalance, currentEquityBalance);
-
-                const currentDrawdown = Math.max(0, effectivePeakGain - currentEquityGain);
-                const currentDrawdownCash = Math.max(0, effectivePeakBalance - currentEquityBalance);
-
-                // A large enough floating loss right now can itself be the deepest drawdown ever
-                // seen — so the live current drawdown also feeds into Max Drawdown.
-                if (currentDrawdown > maxDrawdown) maxDrawdown = currentDrawdown;
-                if (currentDrawdownCash > maxDrawdownCash) maxDrawdownCash = currentDrawdownCash;
+                // Current drawdown: from highest gain to current gain (including unrealized)
+                const currentGainWithUnrealized = chartFinalGain + unrealizedGainPercent;
+                const currentValue = 100 + currentGainWithUnrealized;
+                let currentDrawdown = peakValue > 0 ? ((peakValue - currentValue) / peakValue) * 100 : 0;
+                currentDrawdown = Math.max(0, currentDrawdown);
 
                 document.getElementById('metric-max-drawdown').textContent = maxDrawdown.toFixed(2) + '%';
                 document.getElementById('metric-current-drawdown').textContent = currentDrawdown.toFixed(2) + '%';
                 if (!isNaN(finalBalanceWithUnrealized)) latestPortfolioBalance = finalBalanceWithUnrealized;
 
+                console.log('Max drawdown calculated:', maxDrawdown, 'current drawdown:', currentDrawdown, 'highestGain:', highestGain, 'lowestGain:', lowestGain);
                 window.__latestMaxDrawdownPercent = maxDrawdown;
-                window.__latestMaxDrawdownCash = maxDrawdownCash;
                 window.__latestCurrentDrawdownPercent = currentDrawdown;
-                window.__latestCurrentDrawdownCash = currentDrawdownCash;
                 window.__latestNetProfit = totalNetProfit;
                 window.__latestInitialDeposit = initialDeposit;
                 window.__latestFinalBalance = finalBalanceWithUnrealized;
@@ -1666,9 +1692,7 @@
             // ============================================================
             // MAX DRAWDOWN HEATMAP (mirrors the static Quant Audit report's
             // "Max Drawdown Heatmap" section, but recomputed live — every 1s
-            // tick layers the current floating (unrealized) P/L on top of the
-            // most recent closed-trade point, so the current month/year cell
-            // moves in real time along with open positions.)
+            // tick recomputes from closed trades only.)
             //
             // IMPORTANT: this runs on the TWR gain% series (item.gainPercent),
             // the exact same basis as the Monthly Return Sheet above it and the
@@ -1691,19 +1715,10 @@
                 const endYear = lastDate.getFullYear();
                 for (let y = startYear; y <= endYear; y++) { result.matrix[y] = Array(12).fill(0); result.yearly[y] = 0; }
 
-                // Convert the live floating P/L into the same %-of-initial-deposit units as
-                // gainPercent, matching how unrealizedGainPercent is derived everywhere else
-                // (updateDashboardMetrics, renderChart).
-                const totalDeposits = list.reduce((sum, item) => item.isFunding && item.profit > 0 ? sum + item.profit : sum, 0);
-                const initialDeposit = totalDeposits > 0 ? totalDeposits : (list[0].balance || 10000);
-                const unrealizedGainPercent = initialDeposit > 0 ? (totalUnrealizedPL / initialDeposit) * 100 : 0;
-
+                // Chart shows closed trades only, no unrealized P/L
                 let runningMax = -Infinity;
                 list.forEach((item, idx) => {
-                    const isLast = idx === list.length - 1;
-                    // Only the current (most recent) point carries the live floating P/L —
-                    // historical closed points are unaffected, so past months never move.
-                    const gain = isLast ? item.gainPercent + unrealizedGainPercent : item.gainPercent;
+                    const gain = idx === 0 ? 0 : item.gainPercent;
                     if (gain > runningMax) runningMax = gain;
                     const ddPct = gain - runningMax; // always <= 0, in percentage points
 
@@ -1901,25 +1916,63 @@
                 const ctx = document.getElementById('equityChart').getContext('2d');
                 if (chartInstance) chartInstance.destroy();
 
-                const totalDeposits = list.reduce((sum, item) => item.isFunding && item.profit > 0 ? sum + item.profit : sum, 0);
-                const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
-                const unrealizedGainPercent = (totalUnrealizedPL / initialDeposit) * 100;
-
                 let aggregatedData = [], labels = [];
                 if (activePeriodMode === 'trade') {
                     labels = list.map((item, i) => `#${i + 1}`);
-                    aggregatedData = list.map(item => ({ balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }));
+                    aggregatedData = list.map((item, i) => ({ 
+                        balance: item.balance, 
+                        gainPercent: i === 0 ? 0 : item.gainPercent
+                    }));
                 } else if (activePeriodMode === 'daily') {
                     const dailyMap = {};
-                    list.forEach(item => { const key = item.date.toISOString().split('T')[0]; dailyMap[key] = { balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }; });
+                    let isFirstDaily = true;
+                    const sortedDates = [...new Set(list.map(item => item.date.toISOString().split('T')[0]))].sort();
+                    list.forEach(item => {
+                        const key = item.date.toISOString().split('T')[0];
+                        if (isFirstDaily) {
+                            dailyMap[key] = { balance: item.balance, gainPercent: 0 };
+                            isFirstDaily = false;
+                        } else {
+                            dailyMap[key] = {
+                                balance: item.balance,
+                                gainPercent: item.gainPercent
+                            };
+                        }
+                    });
                     Object.keys(dailyMap).sort().forEach(date => { labels.push(date); aggregatedData.push(dailyMap[date]); });
                 } else if (activePeriodMode === 'monthly') {
                     const monthlyMap = {};
-                    list.forEach(item => { const key = `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`; monthlyMap[key] = { balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }; });
+                    let isFirstMonthly = true;
+                    const sortedKeys = [...new Set(list.map(item => `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`))].sort();
+                    list.forEach(item => {
+                        const key = `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`;
+                        if (isFirstMonthly) {
+                            monthlyMap[key] = { balance: item.balance, gainPercent: 0 };
+                            isFirstMonthly = false;
+                        } else {
+                            monthlyMap[key] = {
+                                balance: item.balance,
+                                gainPercent: item.gainPercent
+                            };
+                        }
+                    });
                     Object.keys(monthlyMap).sort().forEach(key => { const [y,m] = key.split('-'); labels.push(`${new Date(y,m-1).toLocaleString('default',{month:'short'})} ${y}`); aggregatedData.push(monthlyMap[key]); });
                 } else if (activePeriodMode === 'yearly') {
                     const yearlyMap = {};
-                    list.forEach(item => { const key = item.date.getFullYear(); yearlyMap[key] = { balance: item.balance + totalUnrealizedPL, gainPercent: item.gainPercent + unrealizedGainPercent }; });
+                    let isFirstYearly = true;
+                    const sortedYears = [...new Set(list.map(item => item.date.getFullYear()))].sort();
+                    list.forEach(item => {
+                        const key = item.date.getFullYear();
+                        if (isFirstYearly) {
+                            yearlyMap[key] = { balance: item.balance, gainPercent: 0 };
+                            isFirstYearly = false;
+                        } else {
+                            yearlyMap[key] = {
+                                balance: item.balance,
+                                gainPercent: item.gainPercent
+                            };
+                        }
+                    });
                     Object.keys(yearlyMap).sort().forEach(year => { labels.push(year); aggregatedData.push(yearlyMap[year]); });
                 }
 
@@ -1929,60 +1982,6 @@
 
                 const datasetValues = activeChartType === 'gain' ? aggregatedData.map(item => parseFloat(item.gainPercent.toFixed(2))) : aggregatedData.map(item => parseFloat(item.balance.toFixed(2)));
                 const labelString = activeChartType === 'gain' ? 'TWR Return Gain %' : 'Account Balance $';
-
-                // Unrealized extension: last point → current equity including open P/L
-                const lastClosedGain = aggregatedData.length > 0 ? aggregatedData[aggregatedData.length - 1].gainPercent : 0;
-                const lastClosedBal  = aggregatedData.length > 0 ? aggregatedData[aggregatedData.length - 1].balance  : 0;
-                const liveGain = parseFloat((lastClosedGain).toFixed(2));
-                const liveBal  = parseFloat((lastClosedBal).toFixed(2));
-
-                // Extension values: null for all but last two points (anchor + live tip)
-                const extValues = datasetValues.map(() => null);
-                if (extValues.length > 0) extValues[extValues.length - 1] = activeChartType === 'gain' ? liveGain : liveBal;
-                // The "tip" is the unrealized-adjusted final value (already included in datasetValues last point)
-                // We only need the dashed segment to visually distinguish it — it rides the last data point
-                // Live dot plugin — pulsing circle at current tail of line
-                const liveDotPlugin = {
-                    id: 'liveDot',
-                    afterDraw(chart) {
-                        const meta = chart.getDatasetMeta(0);
-                        const lastPt = meta.data[meta.data.length - 1];
-                        if (!lastPt) return;
-                        const { x, y } = lastPt;
-                        const ctx2 = chart.ctx;
-                        const t = (Date.now() % 1800) / 1800;
-                        const outerR = 6 + 10 * t;
-                        const alpha = (1 - t) * 0.6;
-                        // Determine dot color: for gain mode check value vs 0
-                        const lastVal = chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1];
-                        const dotColor = activeChartType === 'gain'
-                            ? (lastVal >= 0 ? '#10b981' : '#ef4444')
-                            : '#3b82f6';
-                        const dotAlphaColor = activeChartType === 'gain'
-                            ? (lastVal >= 0 ? `rgba(16,185,129,${alpha})` : `rgba(239,68,68,${alpha})`)
-                            : `rgba(59,130,246,${alpha})`;
-                        ctx2.save();
-                        ctx2.beginPath();
-                        ctx2.arc(x, y, outerR, 0, Math.PI * 2);
-                        ctx2.strokeStyle = dotAlphaColor;
-                        ctx2.lineWidth = 2;
-                        ctx2.stroke();
-                        ctx2.beginPath();
-                        ctx2.arc(x, y, 5, 0, Math.PI * 2);
-                        ctx2.fillStyle = dotColor;
-                        ctx2.fill();
-                        ctx2.restore();
-                        if (!chart._liveDotAnimating) {
-                            chart._liveDotAnimating = true;
-                            const animate = () => { if (!chart.canvas) return; chart.draw(); chart._liveDotRaf = requestAnimationFrame(animate); };
-                            animate();
-                        }
-                    },
-                    beforeDestroy(chart) {
-                        chart._liveDotAnimating = false;
-                        if (chart._liveDotRaf) cancelAnimationFrame(chart._liveDotRaf);
-                    }
-                };
 
                 // Dynamic green/red line split at 0 for gain mode, solid blue for balance mode
                 const buildDynColor = (chart, pos, neg, neutral) => {
@@ -2003,7 +2002,6 @@
 
                 chartInstance = new Chart(ctx, {
                     type: 'line',
-                    plugins: [liveDotPlugin],
                     data: { labels, datasets: [
                         // Main closed-trades line
                         { label: labelString, data: datasetValues,
@@ -2021,39 +2019,7 @@
                                 return activeChartType === 'gain' ? (v >= 0 ? '#10b981' : '#ef4444') : '#3b82f6';
                             },
                             pointHoverRadius: 6, pointHitRadius: 10
-                        },
-                        // Dashed unrealized extension — shows the last point projected with open P/L
-                        // The last two values are: anchor (last closed) + live tip (last closed + unrealized)
-                        (() => {
-                            const n = datasetValues.length;
-                            if (n < 2 || totalUnrealizedPL === 0) return { data: [], label: '' };
-                            // Recalculate the "pure closed" last value (without unrealized)
-                            const pureClosedGain = list.length > 0 ? list[list.length - 1].gainPercent : 0;
-                            const pureClosedBal  = list.length > 0 ? list[list.length - 1].balance  : 0;
-                            const pureVal = parseFloat((activeChartType === 'gain' ? pureClosedGain : pureClosedBal).toFixed(2));
-                            const liveVal = datasetValues[n - 1]; // already includes unrealized
-                            // Build sparse array: null everywhere except last 2 indices
-                            const extData = Array(n).fill(null);
-                            extData[n - 2] = pureVal;  // anchor at penultimate point
-                            extData[n - 1] = liveVal;  // tip = current live value
-                            const extColor = activeChartType === 'gain'
-                                ? (liveVal >= 0 ? '#10b981' : '#ef4444')
-                                : '#3b82f6';
-                            return {
-                                label: 'Unrealized Extension',
-                                data: extData,
-                                borderColor: extColor,
-                                borderWidth: 2,
-                                borderDash: [6, 4],
-                                backgroundColor: 'transparent',
-                                fill: false,
-                                tension: 0,
-                                pointRadius: (c) => c.dataIndex === n - 1 ? 0 : 0, // dot handled by liveDotPlugin
-                                pointHoverRadius: 4,
-                                pointHitRadius: 8,
-                                spanGaps: false
-                            };
-                        })()
+                        }
                     ] },
                     options: {
                         responsive: true, maintainAspectRatio: false,
