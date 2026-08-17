@@ -748,7 +748,7 @@
                         pinEntry = '';
                         updatePinDots();
                         dots.classList.remove('pin-shake');
-                        hint.textContent = '';
+                        hint.textContent = '';  
                     }, 700);
                 }
             }
@@ -1916,6 +1916,9 @@
                 const ctx = document.getElementById('equityChart').getContext('2d');
                 if (chartInstance) chartInstance.destroy();
 
+                // Use shared unrealized gain percent for drawdown chart
+                const unrealizedGainPercent = sharedUnrealizedGainPercent;
+
                 let aggregatedData = [], labels = [];
                 if (activePeriodMode === 'trade') {
                     labels = list.map((item, i) => `#${i + 1}`);
@@ -2034,11 +2037,19 @@
                 });
                 isFirstChartRender = false;
 
-                // Underwater / drawdown chart (gain% basis, including unrealized)
+                // Underwater / drawdown chart (gain% basis, including unrealized for current point)
                 let runningPeak = -Infinity;
-                const ddSeries = aggregatedData.map(item => {
-                    if (item.gainPercent > runningPeak) runningPeak = item.gainPercent;
-                    return parseFloat((item.gainPercent - runningPeak).toFixed(2));
+                const ddSeries = aggregatedData.map((item, idx) => {
+                    const isLast = idx === aggregatedData.length - 1;
+                    // Add unrealized to the last point to match current drawdown calculation
+                    const gainWithUnrealized = isLast ? item.gainPercent + unrealizedGainPercent : item.gainPercent;
+                    if (gainWithUnrealized > runningPeak) runningPeak = gainWithUnrealized;
+                    // Calculate drawdown as percentage from peak: (current - peak) / (100 + peak) * 100
+                    // This converts gain% to actual value, then calculates % drop from peak
+                    const currentValue = 100 + gainWithUnrealized;
+                    const peakValue = 100 + runningPeak;
+                    const drawdown = ((currentValue - peakValue) / peakValue) * 100;
+                    return parseFloat(drawdown.toFixed(2));
                 });
                 const ddCtx = document.getElementById('drawdownChart').getContext('2d');
                 if (drawdownChartInstance) drawdownChartInstance.destroy();
@@ -2097,8 +2108,8 @@
                 const annSortino = downsideDev > 0 ? ((avgMonthlyRet - monthlyRf) / downsideDev) * Math.sqrt(12) : 0;
                 const calmar = cagr / (maxDDPercent || 1);
                 const realizedVol = monthlyStd * Math.sqrt(12) * 100;
-                const varParametric = (avgMonthlyRet - 1.645 * monthlyStd) * 100;
-                const alpha = ((netProfit / initialDeposit) - (ANNUAL_BENCHMARK_RETURN/100 * durationYears)) * 100;
+                const varParametric = (avgMonthlyRet - 1.645 * monthlyStd) * Math.sqrt(12) * 100;
+                const alpha = (cagr - ANNUAL_BENCHMARK_RETURN);
 
                 const wins = trades.filter(t => t.profit > 0);
                 const losses = trades.filter(t => t.profit < 0);
@@ -2379,7 +2390,7 @@
             // ============================================================
             function runMonteCarlo(trades, initialDeposit) {
                 if (trades.length === 0) return;
-                const numSims = 5000;
+                const numSims = 10000;
                 const numTrades = trades.length;
                 const finalReturns = [], maxDrawdowns = [], maxStagnations = [];
                 let ruinCount = 0, profitableRuns = 0;
