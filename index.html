@@ -873,92 +873,227 @@
             // ============================================================
             const NEWS_CALENDAR_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.xml';
 
-            function fetchNewsCalendar() {
-                // Try direct first, then fallback to CORS proxy
-                const fetchWithProxy = () => {
-                    return fetch(NEWS_CALENDAR_URL, { cache: 'no-store' })
-                        .then(res => res.text())
-                        .catch(() => {
-                            // Fallback to CORS proxy
-                            return fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(NEWS_CALENDAR_URL)}`, { cache: 'no-store' })
-                                .then(res => res.text());
-                        });
-                };
-
-                fetchWithProxy()
-                    .then(xmlText => {
-                        const parser = new DOMParser();
-                        const xml = parser.parseFromString(xmlText, 'text/xml');
-                        
-                        const events = Array.from(xml.querySelectorAll('event')).map(ev => ({
-                            title: ev.querySelector('title')?.textContent.trim() || 'Untitled Event',
-                            country: ev.querySelector('country')?.textContent.trim() || '',
-                            date: ev.querySelector('date')?.textContent.trim() || '',
-                            time: ev.querySelector('time')?.textContent.trim() || '',
-                            impact: ev.querySelector('impact')?.textContent.trim() || 'Low',
-                            forecast: ev.querySelector('forecast')?.textContent.trim() || '',
-                            previous: ev.querySelector('previous')?.textContent.trim() || '',
-                            actual: ev.querySelector('actual')?.textContent.trim() || '',
-                            url: ev.querySelector('url')?.textContent.trim() || ''
-                        }));
-                        
-                        if (events.length === 0) {
-                            showNewsCalendarError('No events found in calendar feed.');
-                            return;
+            // Function to convert time to 24hr format and add 7 hours, with proper date handling
+            function convertTime(timeStr, dateStr) {
+                if (!timeStr || timeStr === 'N/A') return { time: 'N/A', date: dateStr };
+                
+                // Parse the time (assuming format like "12:30pm" or "12:30 PM")
+                const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+                if (!timeMatch) return { time: timeStr, date: dateStr };
+                
+                let hours = parseInt(timeMatch[1]);
+                const minutes = parseInt(timeMatch[2]);
+                const meridiem = timeMatch[3] ? timeMatch[3].toLowerCase() : null;
+                
+                // Convert to 24hr format
+                if (meridiem === 'pm' && hours !== 12) {
+                    hours += 12;
+                } else if (meridiem === 'am' && hours === 12) {
+                    hours = 0;
+                }
+                
+                // Add 7 hours
+                hours += 7;
+                
+                // Handle date rollover
+                let dateOffset = 0;
+                if (hours >= 24) {
+                    hours = hours % 24;
+                    dateOffset = 1;
+                }
+                
+                // Parse the original date and add offset if needed
+                let newDate = dateStr;
+                if (dateOffset > 0 && dateStr) {
+                    try {
+                        // Parse date format MM-DD-YYYY
+                        const parts = dateStr.split('-');
+                        if (parts.length === 3) {
+                            const month = parseInt(parts[0], 10) - 1;
+                            const day = parseInt(parts[1], 10);
+                            const year = parseInt(parts[2], 10);
+                            const dateObj = new Date(year, month, day);
+                            dateObj.setDate(dateObj.getDate() + dateOffset);
+                            
+                            // Format back to MM-DD-YYYY
+                            const newMonth = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const newDay = String(dateObj.getDate()).padStart(2, '0');
+                            const newYear = dateObj.getFullYear();
+                            newDate = `${newMonth}-${newDay}-${newYear}`;
                         }
-                        
-                        renderNewsCalendar(events);
-                    })
-                    .catch(err => {
-                        console.error('ForexFactory calendar fetch failed', err);
-                        showNewsCalendarError('Unable to load economic calendar feed. Will retry automatically.');
-                    });
-            }
-
-            // ForexFactory feed dates are "MM-DD-YYYY", times are like "12:30pm", "All Day", "Tentative", or blank.
-            // Returns a Date object adjusted to Bangkok time (UTC+7)
-            function parseCalendarDateTime(dateStr, timeStr) {
-                if (!dateStr) return null;
-                const parts = dateStr.split('-');
-                if (parts.length !== 3) return null;
-                const month = parseInt(parts[0], 10) - 1;
-                const day = parseInt(parts[1], 10);
-                const year = parseInt(parts[2], 10);
-                if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
-
-                let hours = 0, minutes = 0;
-                if (timeStr) {
-                    const m = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
-                    if (m) {
-                        hours = parseInt(m[1], 10) % 12;
-                        minutes = parseInt(m[2], 10);
-                        if (m[3].toLowerCase() === 'pm') hours += 12;
+                    } catch (e) {
+                        console.log('Date parsing error:', e);
                     }
                 }
-                const dt = new Date(year, month, day, hours, minutes);
-                // Convert to Bangkok time (UTC+7)
-                const bangkokDt = new Date(dt.getTime() + 7 * 60 * 60 * 1000);
-                return isNaN(bangkokDt.getTime()) ? null : bangkokDt;
+                
+                // Format in 24hr format
+                const formattedHours = hours.toString().padStart(2, '0');
+                const formattedMinutes = minutes.toString().padStart(2, '0');
+                
+                return {
+                    time: `${formattedHours}:${formattedMinutes}`,
+                    date: newDate
+                };
             }
 
-            // Current wall-clock time in Asia/Bangkok, expressed as a naive Date built the same
-            // way parseCalendarDateTime builds its values — so the two are directly comparable
-            // once the feed time has been shifted +7h below.
-            function getBangkokNowNaive() {
-                const parts = new Intl.DateTimeFormat('en-US', {
-                    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
-                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-                }).formatToParts(new Date());
-                const get = (type) => parseInt(parts.find(p => p.type === type).value, 10);
-                let hour = get('hour');
-                if (hour === 24) hour = 0;
-                return new Date(get('year'), get('month') - 1, get('day'), hour, get('minute'), get('second'));
-            }
-
-            function formatTime24(dt) {
-                const hh = String(dt.getHours()).padStart(2, '0');
-                const mm = String(dt.getMinutes()).padStart(2, '0');
-                return `${hh}:${mm}`;
+            async function fetchNewsCalendar() {
+                const list = document.getElementById('news-calendar-list');
+                const updatedEl = document.getElementById('news-updated-at');
+                
+                if (list) list.innerHTML = '<div class="text-center py-8 text-zinc-500 text-xs">Loading economic calendar…</div>';
+                if (updatedEl) updatedEl.textContent = '';
+                
+                try {
+                    const targetUrl = 'https://nfs.faireconomy.media/ff_calendar_thisweek.xml';
+                    
+                    // Try with MANY different proxy options
+                    const corsProxies = [
+                        'https://corsproxy.io/?',
+                        'https://api.allorigins.win/raw?url=',
+                        'https://api.allorigins.win/get?url=',
+                        'https://cors-anywhere.herokuapp.com/',
+                        'https://thingproxy.freeboard.io/fetch/',
+                        'https://crossorigin.me/',
+                        'https://api.codetabs.com/v1/proxy?quest='
+                    ];
+                    
+                    let xmlText = null;
+                    let lastError = null;
+                    
+                    for (const proxy of corsProxies) {
+                        try {
+                            console.log(`Trying proxy: ${proxy}`);
+                            const response = await fetch(proxy + encodeURIComponent(targetUrl), {
+                                headers: {
+                                    'Content-Type': 'application/xml',
+                                }
+                            });
+                            if (response.ok) {
+                                const text = await response.text();
+                                // Handle JSON response from some proxies
+                                if (proxy.includes('get')) {
+                                    const json = JSON.parse(text);
+                                    xmlText = json.contents;
+                                } else {
+                                    xmlText = text;
+                                }
+                                console.log('Success with proxy:', proxy);
+                                break;
+                            }
+                        } catch (error) {
+                            lastError = error;
+                            console.log(`Proxy ${proxy} failed:`, error.message);
+                        }
+                    }
+                    
+                    if (!xmlText) {
+                        throw new Error(lastError?.message || 'All proxies failed');
+                    }
+                    
+                    // Parse the XML
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                    
+                    // Check for parsing errors
+                    const parseError = xmlDoc.querySelector('parsererror');
+                    if (parseError) {
+                        throw new Error('XML parsing error');
+                    }
+                    
+                    // Get events using getElementsByTagName (more reliable than querySelectorAll)
+                    const events = xmlDoc.getElementsByTagName('event');
+                    
+                    if (events.length === 0) {
+                        if (list) list.innerHTML = '<div class="text-center py-8 text-zinc-500 text-xs">No events found in the calendar.</div>';
+                        return;
+                    }
+                    
+                    let highImpactUSDCount = 0;
+                    const eventData = [];
+                    
+                    for (let i = 0; i < events.length; i++) {
+                        const event = events[i];
+                        
+                        // Extract event data using getElementsByTagName (same as test.html)
+                        const title = event.getElementsByTagName('title')[0]?.textContent || 'N/A';
+                        const country = event.getElementsByTagName('country')[0]?.textContent || 'N/A';
+                        const date = event.getElementsByTagName('date')[0]?.textContent || 'N/A';
+                        const time = event.getElementsByTagName('time')[0]?.textContent || 'N/A';
+                        const impact = event.getElementsByTagName('impact')[0]?.textContent || 'N/A';
+                        const forecast = event.getElementsByTagName('forecast')[0]?.textContent || 'N/A';
+                        const previous = event.getElementsByTagName('previous')[0]?.textContent || 'N/A';
+                        
+                        // Filter for high impact USD events (exact same logic as test.html)
+                        const isUSD = country.toUpperCase() === 'USD';
+                        const isHighImpact = impact.toUpperCase() === 'HIGH' || 
+                                           impact.toUpperCase() === '3' || // sometimes impact is numeric
+                                           impact.includes('High');
+                        
+                        if (isUSD && isHighImpact) {
+                            highImpactUSDCount++;
+                            const convertedTime = convertTime(time, date);
+                            eventData.push({
+                                title,
+                                date: convertedTime.date,
+                                time: convertedTime.time,
+                                country,
+                                impact,
+                                forecast,
+                                previous
+                            });
+                        }
+                    }
+                    
+                    // Render events in the dashboard style
+                    if (highImpactUSDCount === 0) {
+                        if (list) list.innerHTML = '<div class="text-center py-8 text-zinc-500 text-xs">No high impact USD events found in the calendar.</div>';
+                    } else {
+                        if (list) {
+                            list.innerHTML = '';
+                            eventData.forEach(e => {
+                                const style = newsImpactStyle(e.impact);
+                                const row = document.createElement('div');
+                                row.className = `flex items-center gap-3 rounded-lg border px-3 py-2 transition-all hover:brightness-125 ${style.border} ${style.bg}`;
+                                row.innerHTML = `
+                                    <div class="flex flex-col items-center justify-center min-w-[68px] text-center">
+                                        <span class="text-[9px] uppercase tracking-widest text-zinc-500">${e.date}</span>
+                                        <span class="text-xs font-black ${style.text}">${e.time}</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs font-bold text-slate-200 truncate">${e.title}</p>
+                                        <p class="text-[9px] uppercase tracking-widest ${style.text}">${e.impact} Impact</p>
+                                    </div>
+                                    <div class="flex gap-4 text-right shrink-0">
+                                        <div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Forecast</p><p class="text-xs font-mono text-slate-300">${e.forecast || '—'}</p></div>
+                                        <div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Previous</p><p class="text-xs font-mono text-slate-400">${e.previous || '—'}</p></div>
+                                    </div>
+                                `;
+                                list.appendChild(row);
+                            });
+                        }
+                    }
+                    
+                    // Set updated timestamp
+                    if (updatedEl) {
+                        const now = new Date();
+                        updatedEl.textContent = `Updated: ${now.toLocaleTimeString()}`;
+                    }
+                    
+                } catch (error) {
+                    console.error('Error fetching news calendar:', error);
+                    // Show error instead of fallback
+                    if (list) {
+                        list.innerHTML = `
+                            <div class="text-center py-8 text-zinc-500 text-xs">
+                                <p class="font-bold">Unable to load live economic calendar</p>
+                                <p class="text-[10px] mt-2 opacity-70">Error: ${error.message}</p>
+                                <p class="text-[10px] mt-1 opacity-50">External service blocking requests via CORS policy</p>
+                                <button onclick="fetchNewsCalendar()" class="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-xs font-bold transition-all">Retry Now</button>
+                            </div>
+                        `;
+                    }
+                    if (updatedEl) updatedEl.textContent = '';
+                }
             }
 
             function newsImpactStyle(impact) {
@@ -968,74 +1103,6 @@
                     case 'holiday': return { border: 'border-blue-500/30',   bg: 'bg-blue-500/5',   text: 'text-blue-400' };
                     default:        return { border: 'border-zinc-800',      bg: 'bg-zinc-900/20',  text: 'text-zinc-500' };
                 }
-            }
-
-            function showNewsCalendarError(message) {
-                const list = document.getElementById('news-calendar-list');
-                const updatedEl = document.getElementById('news-updated-at');
-                if (list) list.innerHTML = `<div class="text-center py-8 text-zinc-500 text-xs">${message}</div>`;
-                if (updatedEl) updatedEl.textContent = '';
-            }
-
-            function renderNewsCalendar(events) {
-                const list = document.getElementById('news-calendar-list');
-                if (!list) return;
-
-                // Set updated timestamp
-                const updatedEl = document.getElementById('news-updated-at');
-                if (updatedEl) {
-                    const now = new Date();
-                    updatedEl.textContent = `Updated: ${now.toLocaleTimeString()}`;
-                }
-
-                // Filter for high-impact USD events
-                const usdEvents = events.filter(e => e.country === 'USD' && (e.impact || '').toLowerCase() === 'high');
-                if (usdEvents.length === 0) {
-                    list.innerHTML = '<div class="text-center py-8 text-zinc-500 text-xs">No high-impact USD events this week.</div>';
-                    return;
-                }
-
-                const nowBangkok = getBangkokNowNaive();
-                const parsed = usdEvents
-                    .map(e => {
-                        const dt = parseCalendarDateTime(e.date, e.time);
-                        return { ...e, dt };
-                    })
-                    .sort((a, b) => (a.dt ? a.dt.getTime() : 0) - (b.dt ? b.dt.getTime() : 0));
-
-                list.innerHTML = '';
-                parsed.forEach(e => {
-                    const isPast = e.dt && e.dt.getTime() < nowBangkok.getTime();
-                    const style = newsImpactStyle(e.impact);
-                    const dateLabel = e.dt ? e.dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : e.date;
-                    const timeLabel = e.dt ? formatTime24(e.dt) : (e.time || '—');
-                    const hasActual = e.actual && e.actual.length > 0;
-
-                    const row = document.createElement('a');
-                    row.href = e.url || '#';
-                    row.target = '_blank';
-                    row.rel = 'noopener noreferrer';
-                    row.className = `flex items-center gap-3 rounded-lg border px-3 py-2 transition-all hover:brightness-125 ${style.border} ${style.bg} ${isPast ? 'opacity-40' : ''}`;
-                    row.innerHTML = `
-                        <div class="flex flex-col items-center justify-center min-w-[68px] text-center">
-                            <span class="text-[9px] uppercase tracking-widest text-zinc-500">${dateLabel}</span>
-                            <span class="text-xs font-black ${style.text}">${timeLabel}</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs font-bold text-slate-200 truncate">${e.title}</p>
-                            <p class="text-[9px] uppercase tracking-widest ${style.text}">${e.impact} Impact${isPast ? ' &middot; Released' : ''}</p>
-                        </div>
-                        <div class="flex gap-4 text-right shrink-0">
-                            ${hasActual ? `<div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Actual</p><p class="text-xs font-mono font-black text-white">${e.actual}</p></div>` : ''}
-                            <div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Forecast</p><p class="text-xs font-mono text-slate-300">${e.forecast || '—'}</p></div>
-                            <div><p class="text-[8px] text-zinc-600 uppercase tracking-widest">Previous</p><p class="text-xs font-mono text-slate-400">${e.previous || '—'}</p></div>
-                        </div>
-                    `;
-                    list.appendChild(row);
-                });
-
-
-                if (updatedEl) updatedEl.textContent = `Updated ${now.toLocaleTimeString()}`;
             }
 
             function isHTMLResponse(dataRows) {
