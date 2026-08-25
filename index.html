@@ -226,7 +226,7 @@
             <!-- Header / World Clocks -->
             <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm flex flex-col gap-2">
                 <div class="flex flex-col items-center text-center gap-0.5 pt-1">
-                    <p id="perth-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
+                    <p id="user-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
                     <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
                 </div>
                 <div class="flex flex-row flex-nowrap justify-center gap-1 mt-1 overflow-x-auto pb-1">
@@ -699,8 +699,12 @@
             // ============================================================
             // PIN LOCK
             // ============================================================
-            const PIN_CODE = '120905';
+            const PIN_USERS = {
+                '120905': 'Perth',
+                '300350': 'Aom'
+            };
             let pinEntry = '';
+            let currentUser = '';
 
             function pinPress(digit) {
                 if (pinEntry.length >= 6) return;
@@ -728,7 +732,8 @@
             }
 
             function checkPin() {
-                if (pinEntry === PIN_CODE) {
+                if (PIN_USERS[pinEntry]) {
+                    currentUser = PIN_USERS[pinEntry];
                     updatePinDots('success');
                     setTimeout(() => {
                         const overlay = document.getElementById('pin-overlay');
@@ -736,6 +741,10 @@
                         overlay.classList.add('fade-out');
                         mainContent.style.display = 'block';
                         setTimeout(() => overlay.style.display = 'none', 650);
+                        // Update greeting immediately after login
+                        const perthHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Australia/Perth' }).format(new Date()), 10);
+                        const greetingEl = document.getElementById('user-greeting');
+                        if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour, currentUser);
                     }, 350);
                 } else {
                     updatePinDots('error');
@@ -826,10 +835,10 @@
                 const offset = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName:'short' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
                 return { time, offset };
             }
-            function getGreetingFromHour(hour) {
-                if (hour >= 5 && hour < 12) return 'Good Morning, Perth!';
-                if (hour >= 12 && hour < 18) return 'Good Afternoon, Perth!';
-                return 'Good Evening, Perth!';
+            function getGreetingFromHour(hour, user = 'Perth') {
+                if (hour >= 5 && hour < 12) return `Good Morning, ${user}!`;
+                if (hour >= 12 && hour < 18) return `Good Afternoon, ${user}!`;
+                return `Good Evening, ${user}!`;
             }
             function updateWorldClocks() {
                 const cities = [
@@ -855,47 +864,32 @@
                 const bangkokText = document.getElementById('bangkok-text');
                 if (bangkokText) bangkokText.textContent = `Bangkok: ${bangkokInfo.time} (${bangkokInfo.offset})`;
                 const perthHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Australia/Perth' }).format(new Date()), 10);
-                const greetingEl = document.getElementById('perth-greeting');
-                if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour);
+                const greetingEl = document.getElementById('user-greeting');
+                if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour, currentUser || 'Perth');
             }
 
             // ============================================================
-            // UPCOMING US ECONOMIC NEWS (ForexFactory weekly calendar feed)
+            // UPCOMING US ECONOMIC NEWS (ForexFactory XML feed with CORS proxy)
             // ============================================================
             const NEWS_CALENDAR_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.xml';
 
-            // A static HTML file has no backend of its own, so if the feed doesn't send
-            // permissive CORS headers for this page's origin, a direct fetch() is rejected
-            // by the browser before any response is even seen. Try the direct request first,
-            // then fall back through a couple of public read-only CORS proxies so the feed
-            // still loads. Only the URL of a public XML feed is passed through — no user or
-            // account data ever goes through these proxies.
-            function fetchTextWithFallback(url) {
-                const attempts = [
-                    () => fetch(url, { cache: 'no-store' }),
-                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { cache: 'no-store' }),
-                    () => fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`, { cache: 'no-store' }),
-                    () => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { cache: 'no-store' })
-                ];
-
-                const tryNext = (idx) => {
-                    if (idx >= attempts.length) return Promise.reject(new Error('All fetch attempts (direct + proxies) failed.'));
-                    return attempts[idx]()
-                        .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
-                        .catch(err => {
-                            console.warn(`News calendar fetch attempt ${idx + 1}/${attempts.length} failed`, err);
-                            return tryNext(idx + 1);
+            function fetchNewsCalendar() {
+                // Try direct first, then fallback to CORS proxy
+                const fetchWithProxy = () => {
+                    return fetch(NEWS_CALENDAR_URL, { cache: 'no-store' })
+                        .then(res => res.text())
+                        .catch(() => {
+                            // Fallback to CORS proxy
+                            return fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(NEWS_CALENDAR_URL)}`, { cache: 'no-store' })
+                                .then(res => res.text());
                         });
                 };
-                return tryNext(0);
-            }
 
-            function fetchNewsCalendar() {
-                fetchTextWithFallback(`${NEWS_CALENDAR_URL}?t=${Date.now()}`)
+                fetchWithProxy()
                     .then(xmlText => {
                         const parser = new DOMParser();
                         const xml = parser.parseFromString(xmlText, 'text/xml');
-                        if (xml.querySelector('parsererror')) throw new Error('Feed returned malformed XML.');
+                        
                         const events = Array.from(xml.querySelectorAll('event')).map(ev => ({
                             title: ev.querySelector('title')?.textContent.trim() || 'Untitled Event',
                             country: ev.querySelector('country')?.textContent.trim() || '',
@@ -907,18 +901,22 @@
                             actual: ev.querySelector('actual')?.textContent.trim() || '',
                             url: ev.querySelector('url')?.textContent.trim() || ''
                         }));
-                        if (events.length === 0) throw new Error('Feed parsed but contained no events.');
+                        
+                        if (events.length === 0) {
+                            showNewsCalendarError('No events found in calendar feed.');
+                            return;
+                        }
+                        
                         renderNewsCalendar(events);
                     })
                     .catch(err => {
-                        console.error('Economic calendar fetch failed after all fallbacks', err);
-                        showNewsCalendarError('Unable to load economic calendar feed (network or CORS issue). Will retry automatically.');
+                        console.error('ForexFactory calendar fetch failed', err);
+                        showNewsCalendarError('Unable to load economic calendar feed. Will retry automatically.');
                     });
             }
 
-            // Feed dates are "MM-DD-YYYY", times are like "12:30pm", "All Day", "Tentative", or blank.
-            // Returns a naive Date built straight from those numbers (no timezone applied yet —
-            // the +7h correction to Bangkok time happens where this is consumed).
+            // ForexFactory feed dates are "MM-DD-YYYY", times are like "12:30pm", "All Day", "Tentative", or blank.
+            // Returns a Date object adjusted to Bangkok time (UTC+7)
             function parseCalendarDateTime(dateStr, timeStr) {
                 if (!dateStr) return null;
                 const parts = dateStr.split('-');
@@ -938,7 +936,9 @@
                     }
                 }
                 const dt = new Date(year, month, day, hours, minutes);
-                return isNaN(dt.getTime()) ? null : dt;
+                // Convert to Bangkok time (UTC+7)
+                const bangkokDt = new Date(dt.getTime() + 7 * 60 * 60 * 1000);
+                return isNaN(bangkokDt.getTime()) ? null : bangkokDt;
             }
 
             // Current wall-clock time in Asia/Bangkok, expressed as a naive Date built the same
@@ -972,14 +972,23 @@
 
             function showNewsCalendarError(message) {
                 const list = document.getElementById('news-calendar-list');
+                const updatedEl = document.getElementById('news-updated-at');
                 if (list) list.innerHTML = `<div class="text-center py-8 text-zinc-500 text-xs">${message}</div>`;
+                if (updatedEl) updatedEl.textContent = '';
             }
 
             function renderNewsCalendar(events) {
                 const list = document.getElementById('news-calendar-list');
-                const updatedEl = document.getElementById('news-updated-at');
                 if (!list) return;
 
+                // Set updated timestamp
+                const updatedEl = document.getElementById('news-updated-at');
+                if (updatedEl) {
+                    const now = new Date();
+                    updatedEl.textContent = `Updated: ${now.toLocaleTimeString()}`;
+                }
+
+                // Filter for high-impact USD events
                 const usdEvents = events.filter(e => e.country === 'USD' && (e.impact || '').toLowerCase() === 'high');
                 if (usdEvents.length === 0) {
                     list.innerHTML = '<div class="text-center py-8 text-zinc-500 text-xs">No high-impact USD events this week.</div>';
@@ -989,10 +998,7 @@
                 const nowBangkok = getBangkokNowNaive();
                 const parsed = usdEvents
                     .map(e => {
-                        const rawDt = parseCalendarDateTime(e.date, e.time);
-                        // Shift the feed's published time +7 hours (per the trading account's
-                        // Bangkok/UTC+7 reference), then display/sort/compare on that basis.
-                        const dt = rawDt ? new Date(rawDt.getTime() + 7 * 60 * 60 * 1000) : null;
+                        const dt = parseCalendarDateTime(e.date, e.time);
                         return { ...e, dt };
                     })
                     .sort((a, b) => (a.dt ? a.dt.getTime() : 0) - (b.dt ? b.dt.getTime() : 0));
@@ -1622,25 +1628,32 @@
                 const tbody = document.getElementById('monthly-heatmap-body');
                 if (!tbody) return;
                 tbody.innerHTML = '';
-                const monthlyGainsMap = {};
-                let firstDate = null, lastDate = null;
-                list.forEach(item => {
-                    const y = item.date.getFullYear(), m = item.date.getMonth(), key = `${y}-${m}`;
-                    monthlyGainsMap[key] = item.gainPercent;
-                    if (!firstDate || item.date < firstDate) firstDate = item.date;
-                    if (!lastDate || item.date > lastDate) lastDate = item.date;
-                });
-                if (!firstDate || !lastDate) { tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>'; return; }
+                
+                // Filter only non-funding trades for TWR calculation
+                const trades = list.filter(i => !i.isFunding && i.tradeReturnPercent !== undefined);
+                if (trades.length === 0) { tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>'; return; }
 
+                // Build compounding monthly returns using TWR (same as 3rd party)
+                const monthlyMap = {};
+                trades.forEach(t => {
+                    const r = t.tradeReturnPercent / 100;
+                    const mKey = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+                    monthlyMap[mKey] = (monthlyMap[mKey] === undefined ? 1 : monthlyMap[mKey]) * (1 + r);
+                });
+
+                // Convert compounded values to percentage returns
+                Object.keys(monthlyMap).forEach(key => {
+                    monthlyMap[key] = (monthlyMap[key] - 1) * 100;
+                });
+
+                let firstDate = trades[0].date, lastDate = trades[trades.length - 1].date;
                 const yearsMap = {};
-                let runningGain = 0, currY = firstDate.getFullYear(), currM = firstDate.getMonth();
+                let currY = firstDate.getFullYear(), currM = firstDate.getMonth();
                 const stopY = lastDate.getFullYear(), stopM = lastDate.getMonth();
                 while (currY < stopY || (currY === stopY && currM <= stopM)) {
                     const key = `${currY}-${currM}`;
-                    const monthEndGain = monthlyGainsMap.hasOwnProperty(key) ? monthlyGainsMap[key] : runningGain;
                     if (!yearsMap[currY]) yearsMap[currY] = Array(12).fill(null);
-                    yearsMap[currY][currM] = monthEndGain - runningGain;
-                    runningGain = monthEndGain;
+                    yearsMap[currY][currM] = monthlyMap.hasOwnProperty(key) ? monthlyMap[key] : null;
                     currM++; if (currM > 11) { currM = 0; currY++; }
                 }
 
@@ -1716,11 +1729,17 @@
                 for (let y = startYear; y <= endYear; y++) { result.matrix[y] = Array(12).fill(0); result.yearly[y] = 0; }
 
                 // Chart shows closed trades only, no unrealized P/L
-                let runningMax = -Infinity;
+                // Use proper drawdown calculation: (currentValue - peakValue) / peakValue * 100
+                let runningPeakValue = 100; // Start with baseline of 100%
                 list.forEach((item, idx) => {
                     const gain = idx === 0 ? 0 : item.gainPercent;
-                    if (gain > runningMax) runningMax = gain;
-                    const ddPct = gain - runningMax; // always <= 0, in percentage points
+                    const currentValue = 100 + gain;
+                    
+                    // Update running peak (high water mark)
+                    if (currentValue > runningPeakValue) runningPeakValue = currentValue;
+                    
+                    // Calculate proper drawdown as percentage from peak
+                    const ddPct = ((currentValue - runningPeakValue) / runningPeakValue) * 100; // always <= 0
 
                     const y = item.date.getFullYear(), m = item.date.getMonth();
                     if (ddPct < result.matrix[y][m]) result.matrix[y][m] = ddPct;
@@ -2401,7 +2420,7 @@
                     stepDistributions[0].push(0);
                     for (let j = 0; j < numTrades; j++) {
                         const randomTrade = trades[Math.floor(Math.random() * numTrades)];
-                        const tradeImpact = runningMax * (randomTrade.returnPct / 100);
+                        const tradeImpact = balance * (randomTrade.returnPct / 100);
                         balance += tradeImpact;
                         if (balance > runningMax) runningMax = balance;
                         if (balance <= 0) { balance = 0; maxDD = 100; break; }
