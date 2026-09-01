@@ -678,6 +678,7 @@
             let sharedUnrealizedGainPercent = 0;
             let isFirstChartRender = true;
             let isFirstDrawdownRender = true;
+            let currentOpenTrades = []; // Store current open positions for PDF export
 
             let columnMapping = { date:'', profit:'', balance:'', type:'', openDate:'', symbol:'', volume:'', openPrice:'', closePrice:'', magic:'' };
             let openTradeColumnMapping = { time:'', status:'', symbol:'', type:'', volume:'', openPrice:'', currentPrice:'', takeProfit:'', stopLoss:'', commission:'', swap:'', profit:'' };
@@ -1290,6 +1291,9 @@
                     trades.push({ time, symbol, type, volume, openPrice, takeProfit, stopLoss, currentPrice, commission, swap, profit: profitValue, openDateObj, holdingMs });
                 });
 
+                // Store current open trades for PDF export
+                currentOpenTrades = trades;
+
                 totalUnrealizedPL = totalUnrealized;
                 countEl.textContent = `${trades.length} Active`;
                 metricEl.className = `metric-value ${totalUnrealized >= 0 ? 'val-pos' : 'val-neg'}`;
@@ -1883,7 +1887,11 @@
                         let days = Math.floor(diffMs / 86400000);
                         let hours = Math.floor((diffMs % 86400000) / 3600000);
                         let minutes = Math.floor((diffMs % 3600000) / 60000);
-                        holdingTime = `${String(days).padStart(2,'0')}D:${String(hours).padStart(2,'0')}H:${String(minutes).padStart(2,'0')}M`;
+                        const parts = [];
+                        if (days > 0) parts.push(`${String(days).padStart(2,'0')}D`);
+                        if (hours > 0 || parts.length > 0) parts.push(`${String(hours).padStart(2,'0')}H`);
+                        parts.push(`${String(minutes).padStart(2,'0')}M`);
+                        holdingTime = parts.join(':');
                     }
                     let typeBadge = '';
                     if (isFunding) {
@@ -1923,19 +1931,53 @@
             // ============================================================
             // RFR / BENCHMARK CONTROLS (user-adjustable)
             // ============================================================
+            // Cached base metrics (RFR-independent)
+            let cachedBaseMetrics = null;
+
             function updateRFR(val) {
                 const v = parseFloat(val);
                 if (!isNaN(v) && v >= 0) {
                     ANNUAL_RISK_FREE_RATE = v;
-                    if (processedList.length > 0) computeInstitutionMetrics(processedList, cachedTotalDeposits);
+                    if (cachedBaseMetrics) updateRFRDependentMetrics(cachedBaseMetrics);
                 }
             }
             function updateBenchmark(val) {
                 const v = parseFloat(val);
                 if (!isNaN(v)) {
                     ANNUAL_BENCHMARK_RETURN = v;
-                    if (processedList.length > 0) computeInstitutionMetrics(processedList, cachedTotalDeposits);
+                    if (cachedBaseMetrics) updateBenchmarkDependentMetrics(cachedBaseMetrics);
                 }
+            }
+
+            function updateRFRDependentMetrics(base) {
+                const monthlyRf = ANNUAL_RISK_FREE_RATE / 100 / 12;
+                const annSharpe = base.monthlyStd > 0 ? ((base.avgMonthlyRet - monthlyRf) / base.monthlyStd) * Math.sqrt(12) : 0;
+                const downsideDiffs = base.monthlyReturns.filter(r => r < monthlyRf).map(r => Math.pow(r - monthlyRf, 2));
+                const downsideDev = Math.sqrt(downsideDiffs.reduce((a,b)=>a+b,0) / (base.monthlyReturns.length || 1));
+                const annSortino = downsideDev > 0 ? ((base.avgMonthlyRet - monthlyRf) / downsideDev) * Math.sqrt(12) : 0;
+
+                const updateMetric = (id, val, suffix = "", isRatio = false) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    const threshold = isRatio ? 1.0 : 0;
+                    el.className = `metric-value ${val > threshold ? 'val-pos' : val < threshold ? 'val-neg' : 'val-neutral'}`;
+                };
+
+                updateMetric('stat-sharpe', annSharpe);
+                updateMetric('stat-sortino', annSortino);
+            }
+
+            function updateBenchmarkDependentMetrics(base) {
+                const alpha = (base.cagr - ANNUAL_BENCHMARK_RETURN);
+                const updateMetric = (id, val, suffix = "", isRatio = false) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    const threshold = isRatio ? 1.0 : 0;
+                    el.className = `metric-value ${val > threshold ? 'val-pos' : val < threshold ? 'val-neg' : 'val-neutral'}`;
+                };
+                updateMetric('stat-alpha', alpha, "%");
             }
 
                     // ============================================================
@@ -2186,8 +2228,23 @@
                 const avgMonthlyRet = monthlyReturns.reduce((a,b)=>a+b,0) / (monthlyReturns.length || 1);
                 const avgDailyRet = dailyReturns.reduce((a,b)=>a+b,0) / (dailyReturns.length || 1);
                 const monthlyStd = getStandardDeviation(monthlyReturns);
-                const monthlyRf = ANNUAL_RISK_FREE_RATE / 100 / 12;
 
+                // Cache base metrics (RFR-independent)
+                cachedBaseMetrics = {
+                    cagr,
+                    avgMonthlyRet,
+                    avgDailyRet,
+                    monthlyStd,
+                    monthlyReturns,
+                    maxDDPercent,
+                    maxDDCash,
+                    netProfit,
+                    initialDeposit,
+                    durationYears
+                };
+
+                // Calculate RFR-dependent metrics
+                const monthlyRf = ANNUAL_RISK_FREE_RATE / 100 / 12;
                 const annSharpe = monthlyStd > 0 ? ((avgMonthlyRet - monthlyRf) / monthlyStd) * Math.sqrt(12) : 0;
                 const downsideDiffs = monthlyReturns.filter(r => r < monthlyRf).map(r => Math.pow(r - monthlyRf, 2));
                 const downsideDev = Math.sqrt(downsideDiffs.reduce((a,b)=>a+b,0) / (monthlyReturns.length || 1));
@@ -2584,38 +2641,771 @@
             // EXPORT TRANSACTIONS HISTORY TO PDF (all rows, not just visible)
             // ============================================================
             async function exportTransactionsPDF() {
-                if (processedList.length === 0) { alert('No transaction data to export.'); return; }
-                const { jsPDF } = window.jspdf;
+                try {
+                    console.log('Starting PDF export...');
+                    
+                    if (processedList.length === 0) { 
+                        alert('No transaction data to export.'); 
+                        return; 
+                    }
+                    
+                    console.log('Transaction data available:', processedList.length);
+                    
+                    const { jsPDF } = window.jspdf;
+                    
+                    if (!jsPDF) {
+                        alert('jsPDF library not loaded. Please refresh the page.');
+                        return;
+                    }
 
-                // Build a full off-screen table with ALL rows (no max-height clipping)
-                const container = document.createElement('div');
-                container.style.cssText = 'position:absolute;left:-9999px;top:0;width:1400px;background:#000;padding:32px;font-family:system-ui,sans-serif;';
+                    // Calculate summary statistics
+                    console.log('Calculating summary statistics...');
+                    const totalTrades = processedList.filter(item => !item.isFunding).length;
+                    const totalFunding = processedList.filter(item => item.isFunding).length;
+                    const totalProfit = processedList.reduce((sum, item) => sum + item.profit, 0);
+                    const totalCommission = processedList.reduce((sum, item) => sum + (item.commission || 0), 0);
+                    const totalSwap = processedList.reduce((sum, item) => sum + (item.swap || 0), 0);
+                    const winningTrades = processedList.filter(item => !item.isFunding && item.profit > 0).length;
+                    const losingTrades = processedList.filter(item => !item.isFunding && item.profit < 0).length;
+                    const winRate = totalTrades > 0 ? (winningTrades / totalTrades * 100).toFixed(2) : 0;
+                    
+                    // Calculate total deposits
+                    const totalDeposits = processedList.reduce((sum, item) => {
+                        if (item.isFunding && item.profit > 0) return sum + item.profit;
+                        return sum;
+                    }, 0);
+                    
+                    // Calculate winning and losing trade lists for accurate metrics
+                    const winningTradeList = processedList.filter(item => !item.isFunding && item.profit > 0);
+                    const losingTradeList = processedList.filter(item => !item.isFunding && item.profit < 0);
+                    
+                    // Calculate Sharpe Ratio
+                    const ANNUAL_RISK_FREE_RATE = 2.0; // 2% annual risk-free rate
+                    const tradeReturns = processedList.filter(item => !item.isFunding && item.tradeReturnPercent !== undefined).map(item => item.tradeReturnPercent / 100);
+                    let sharpeRatio = 0;
+                    if (tradeReturns.length > 1) {
+                        const avgReturn = tradeReturns.reduce((a, b) => a + b, 0) / tradeReturns.length;
+                        const stdDev = Math.sqrt(tradeReturns.reduce((sum, ret) => sum + Math.pow(ret - avgReturn, 2), 0) / tradeReturns.length);
+                        // More accurate annualization assuming daily trading
+                        const annualizedReturn = avgReturn * Math.sqrt(252); // 252 trading days per year
+                        const annualizedStdDev = stdDev * Math.sqrt(252);
+                        sharpeRatio = annualizedStdDev > 0 ? (annualizedReturn - (ANNUAL_RISK_FREE_RATE / 100)) / annualizedStdDev : 0;
+                    }
+                    
+                    console.log('Sharpe Ratio calculation:', { tradeReturnsLength: tradeReturns.length, sharpeRatio });
+                    
+                    console.log('Getting current metric values...');
+                    // Get current metric values
+                    const gainTWR = document.getElementById('metric-twr-gain').textContent;
+                    const netProfit = document.getElementById('metric-net-profit').textContent;
+                    const balance = document.getElementById('metric-balance').textContent;
+                    const maxDrawdown = document.getElementById('metric-max-drawdown').textContent;
+                    const currentDrawdown = document.getElementById('metric-current-drawdown').textContent;
+                    const unrealizedPL = document.getElementById('metric-unrealized-pl').textContent;
+                    
+                    console.log('Metrics retrieved:', { gainTWR, netProfit, balance, maxDrawdown });
+                    console.log('Chart instances:', { chartInstance: !!chartInstance, drawdownChartInstance: !!drawdownChartInstance });
 
-                const title = document.createElement('div');
-                title.style.cssText = 'margin-bottom:20px;';
-                title.innerHTML = `
-                    <p style="font-size:10px;text-transform:uppercase;letter-spacing:.25em;color:#71717a;font-weight:900;margin-bottom:4px;">ROWRIC Live Portfolio Auditor</p>
-                    <h2 style="font-size:22px;font-weight:900;color:#f4f4f5;letter-spacing:-.03em;margin:0;">Detailed Transactions History</h2>
-                    <p style="font-size:10px;color:#52525b;margin-top:4px;text-transform:uppercase;letter-spacing:.1em;">
-                        Generated: ${new Date().toLocaleString()} &nbsp;·&nbsp; ${processedList.length} Entries
-                    </p>
-                `;
-                container.appendChild(title);
+                    // Create PDF with A4 portrait format
+                    console.log('Creating PDF document...');
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 15;
+                const contentWidth = pageWidth - (margin * 2);
+                
+                let currentPage = 1;
+                const totalPages = 3; // Summary page + transactions pages (estimated)
 
-                const table = document.createElement('table');
-                table.style.cssText = 'width:100%;border-collapse:collapse;font-size:10px;';
+                // Helper function to add header
+                function addHeader(pageNum) {
+                    pdf.setFillColor(255, 255, 255);
+                    pdf.rect(0, 0, pageWidth, 35, 'F');
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(12);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text('ROWRIC', margin, 10);
+                    
+                    pdf.setFontSize(8);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.text('Institutional Portfolio Data Report', margin, 16);
+                    
+                    pdf.setFontSize(7);
+                    pdf.text('Quantitative Trading System | Performance Analytics', margin, 21);
+                    
+                    pdf.setFontSize(7);
+                    pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 26);
+                    
+                    pdf.setFontSize(8);
+                    pdf.text(`Page ${pageNum}`, pageWidth - margin, 10, { align: 'right' });
+                    
+                    pdf.setFontSize(7);
+                    pdf.text('Confidential', pageWidth - margin, 16, { align: 'right' });
+                    
+                    pdf.setDrawColor(0, 0, 0);
+                    pdf.setLineWidth(0.5);
+                    pdf.line(margin, 35, pageWidth - margin, 35);
+                }
 
-                const headers = ['In Time','Out Time','Symbol','Type','Volume','In Price','Out Price','Profit','Gain %','Commission','Swap','Magic','Holding Time'];
-                const thead = document.createElement('thead');
-                thead.innerHTML = '<tr>' + headers.map(h =>
-                    `<th style="padding:8px 10px;text-align:left;background:#0a0a0a;color:#52525b;font-weight:900;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #27272a;white-space:nowrap;">${h}</th>`
-                ).join('') + '</tr>';
-                table.appendChild(thead);
+                // Helper function to add footer
+                function addFooter() {
+                    pdf.setFillColor(255, 255, 255);
+                    pdf.rect(0, pageHeight - 25, pageWidth, 25, 'F');
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(6);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.text('ROWRIC Quantitative Trading System', margin, pageHeight - 20);
+                    pdf.text('Institutional Portfolio Data Report', margin, pageHeight - 14);
+                    
+                    pdf.setFontSize(6);
+                    pdf.text('Document Classification: Confidential', pageWidth - margin, pageHeight - 20, { align: 'right' });
+                    pdf.text('© ' + new Date().getFullYear() + ' ROWRIC. All rights reserved.', pageWidth - margin, pageHeight - 14, { align: 'right' });
+                    
+                    pdf.setDrawColor(0, 0, 0);
+                    pdf.setLineWidth(0.5);
+                    pdf.line(margin, pageHeight - 25, pageWidth - margin, pageHeight - 25);
+                }
 
-                const tbody = document.createElement('tbody');
+                // Helper function to convert canvas to black and white
+                function convertCanvasToBW(canvas) {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = canvas.width;
+                    tempCanvas.height = canvas.height;
+                    const ctx = tempCanvas.getContext('2d');
+                    ctx.drawImage(canvas, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    const data = imageData.data;
+                    
+                    for (let i = 0; i < data.length; i += 4) {
+                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        data[i] = avg;     // R
+                        data[i + 1] = avg; // G
+                        data[i + 2] = avg; // B
+                    }
+                    
+                    ctx.putImageData(imageData, 0, 0);
+                    return tempCanvas.toDataURL('image/png');
+                }
+
+                // PAGE 1: EXECUTIVE SUMMARY
+                addHeader(currentPage);
+                
+                let yPos = 45;
+                
+                // Title
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFontSize(20);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Executive Summary', margin, yPos);
+                yPos += 25;
+                
+                // Subtitle
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'normal');
+                pdf.setTextColor(80, 80, 80);
+                pdf.text('Institution Risk & Return Analytics', margin, yPos);
+                yPos += 20;
+                
+                // Performance Overview Section
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(11);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Performance Overview', margin, yPos);
+                yPos += 8;
+                
+                // Performance metrics in 3-column grid
+                const perfMetrics = [
+                    { label: 'Total Return (TWR)', value: gainTWR },
+                    { label: 'Net Profit/Loss', value: netProfit },
+                    { label: 'Portfolio Value', value: balance },
+                    { label: 'Unrealized P/L', value: unrealizedPL },
+                    { label: 'Maximum Drawdown', value: maxDrawdown },
+                    { label: 'Current Drawdown', value: currentDrawdown }
+                ];
+                
+                const perfColWidth = contentWidth / 3;
+                perfMetrics.forEach((metric, index) => {
+                    const col = index % 3;
+                    const row = Math.floor(index / 3);
+                    const x = margin + (col * perfColWidth);
+                    const y = yPos + (row * 14);
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(80, 80, 80);
+                    pdf.text(metric.label, x, y);
+                    
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(metric.value, x, y + 5);
+                });
+                
+                yPos += Math.ceil(perfMetrics.length / 3) * 14 + 12;
+                
+                // Trading Statistics Section
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(11);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Trading Statistics', margin, yPos);
+                yPos += 8;
+                
+                // Trading metrics in 3-column grid
+                const tradeMetrics = [
+                    { label: 'Win Rate', value: `${winRate}%` },
+                    { label: 'Total Transactions', value: totalTrades.toString() },
+                    { label: 'Winning Trades', value: winningTrades.toString() },
+                    { label: 'Losing Trades', value: losingTrades.toString() },
+                    { label: 'Profit Factor', value: winningTradeList.length > 0 && losingTradeList.length > 0 ? (winningTradeList.reduce((sum, t) => sum + t.profit, 0) / Math.abs(losingTradeList.reduce((sum, t) => sum + t.profit, 0))).toFixed(2) : '—' },
+                    { label: 'Average Trade', value: totalTrades > 0 ? `$${(totalProfit / totalTrades).toFixed(2)}` : '—' }
+                ];
+                
+                tradeMetrics.forEach((metric, index) => {
+                    const col = index % 3;
+                    const row = Math.floor(index / 3);
+                    const x = margin + (col * perfColWidth);
+                    const y = yPos + (row * 14);
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(80, 80, 80);
+                    pdf.text(metric.label, x, y);
+                    
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(metric.value, x, y + 5);
+                });
+                
+                yPos += Math.ceil(tradeMetrics.length / 3) * 14 + 12;
+                
+                // Financial Summary Section
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(11);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Financial Summary', margin, yPos);
+                yPos += 8;
+                
+                // Financial metrics in 3-column grid
+                const finMetrics = [
+                    { label: 'Gross P/L', value: `$${totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` },
+                    { label: 'Total Commission', value: `$${totalCommission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` },
+                    { label: 'Total Swap Fees', value: `$${totalSwap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` },
+                    { label: 'Net P/L (After Costs)', value: `$${(totalProfit - totalCommission - totalSwap).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` },
+                    { label: 'ROI', value: totalDeposits > 0 ? `${((totalProfit / totalDeposits) * 100).toFixed(2)}%` : '—' },
+                    { label: 'Average Daily Return', value: totalTrades > 0 ? `${((totalProfit / totalTrades) * 100).toFixed(2)}%` : '—' }
+                ];
+                
+                finMetrics.forEach((metric, index) => {
+                    const col = index % 3;
+                    const row = Math.floor(index / 3);
+                    const x = margin + (col * perfColWidth);
+                    const y = yPos + (row * 14);
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(80, 80, 80);
+                    pdf.text(metric.label, x, y);
+                    
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(metric.value, x, y + 5);
+                });
+                
+                yPos += Math.ceil(finMetrics.length / 3) * 14 + 12;
+                
+                // Transaction Activity Summary
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(12);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Transaction Activity Summary', margin, yPos);
+                yPos += 12;
+                
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(9);
+                pdf.setTextColor(60, 60, 60);
+                pdf.text(`Total Recorded Transactions: ${processedList.length}`, margin, yPos);
+                yPos += 8;
+                pdf.text(`Trading Operations: ${totalTrades}`, margin, yPos);
+                yPos += 8;
+                pdf.text(`Capital Movements (Deposits/Withdrawals): ${totalFunding}`, margin, yPos);
+                yPos += 8;
+                pdf.text(`Current Open Positions: ${currentOpenTrades.length}`, margin, yPos);
+                
+                yPos += 15;
+                
+                // Risk Metrics Section
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(11);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Risk Metrics', margin, yPos);
+                yPos += 8;
+                
+                // Risk metrics in 3-column grid
+                const riskColWidth = contentWidth / 3;
+                
+                // Calculate average win and loss properly
+                const avgWin = winningTradeList.length > 0 ? winningTradeList.reduce((sum, t) => sum + t.profit, 0) / winningTradeList.length : 0;
+                const avgLoss = losingTradeList.length > 0 ? losingTradeList.reduce((sum, t) => sum + t.profit, 0) / losingTradeList.length : 0;
+                
+                console.log('Sharpe Ratio calculated:', sharpeRatio);
+                
+                const riskMetrics = [
+                    { label: 'Maximum Drawdown', value: maxDrawdown },
+                    { label: 'Current Drawdown', value: currentDrawdown },
+                    { label: 'Sharpe Ratio', value: sharpeRatio.toFixed(2) },
+                    { label: 'Average Loss per Trade', value: losingTradeList.length > 0 ? `$${avgLoss.toFixed(2)}` : '—' },
+                    { label: 'Average Win per Trade', value: winningTradeList.length > 0 ? `$${avgWin.toFixed(2)}` : '—' }
+                ];
+                
+                riskMetrics.forEach((metric, index) => {
+                    const col = index % 3;
+                    const row = Math.floor(index / 3);
+                    const x = margin + (col * riskColWidth);
+                    const y = yPos + (row * 14);
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(80, 80, 80);
+                    pdf.text(metric.label, x, y);
+                    
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(metric.value, x, y + 5);
+                    
+                    console.log('Rendering risk metric:', metric.label, metric.value);
+                });
+                
+                yPos += Math.ceil(riskMetrics.length / 3) * 14 + 12;
+                
+                // Ensure page break before footer
+                if (yPos > pageHeight - 60) {
+                    addFooter();
+                    currentPage++;
+                    pdf.addPage();
+                    addHeader(currentPage);
+                    yPos = 50;
+                }
+                
+                // Check if we have enough space for charts, if not move to new page
+                if (yPos > 115) {
+                    addFooter();
+                    currentPage++;
+                    pdf.addPage();
+                    addHeader(currentPage);
+                    yPos = 50;
+                }
+                
+                // Temporarily switch to daily mode for chart capture
+                console.log('Switching chart to daily mode for capture...');
+                const originalPeriodMode = activePeriodMode;
+                const originalChartType = activeChartType;
+                activePeriodMode = 'daily';
+                activeChartType = 'gain';
+                
+                // Re-render chart with daily mode
+                console.log('Re-rendering chart...');
+                renderChart(processedList);
+                console.log('Chart re-rendered');
+                
+                // Add charts section
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(14);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Performance Analytics', margin, yPos);
+                yPos += 10;
+                
+                // Capture equity chart
+                console.log('Capturing equity chart...');
+                const equityCanvas = document.getElementById('equityChart');
+                if (equityCanvas && chartInstance) {
+                    try {
+                        console.log('Converting equity chart to black and white...');
+                        const equityImgData = convertCanvasToBW(equityCanvas);
+                        const equityChartWidth = contentWidth;
+                        const equityChartHeight = 50;
+                        pdf.addImage(equityImgData, 'PNG', margin, yPos, equityChartWidth, equityChartHeight);
+                        yPos += equityChartHeight + 6;
+                        
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setFontSize(8);
+                        pdf.setTextColor(0, 0, 0);
+                        pdf.text('Equity Curve & Portfolio Gain (Daily)', margin, yPos);
+                        yPos += 8;
+                        console.log('Equity chart captured successfully');
+                    } catch (e) {
+                        console.error('Error capturing equity chart:', e);
+                    }
+                } else {
+                    console.log('Equity chart canvas or instance not available');
+                }
+                
+                // Capture drawdown chart
+                const drawdownCanvas = document.getElementById('drawdownChart');
+                if (drawdownCanvas && drawdownChartInstance) {
+                    try {
+                        const drawdownImgData = convertCanvasToBW(drawdownCanvas);
+                        const drawdownChartWidth = contentWidth;
+                        const drawdownChartHeight = 35;
+                        pdf.addImage(drawdownImgData, 'PNG', margin, yPos, drawdownChartWidth, drawdownChartHeight);
+                        yPos += drawdownChartHeight + 6;
+                        
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setFontSize(8);
+                        pdf.setTextColor(0, 0, 0);
+                        pdf.text('Underwater Return Profile (%)', margin, yPos);
+                        yPos += 8;
+                    } catch (e) {
+                        console.log('Error capturing drawdown chart:', e);
+                    }
+                }
+                
+                // Restore original chart mode
+                activePeriodMode = originalPeriodMode;
+                activeChartType = originalChartType;
+                renderChart(processedList);
+                
+                yPos += 5;
+                
+                // Add current positions section
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(14);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Current Positions', margin, yPos);
+                yPos += 12;
+                
+                if (currentOpenTrades.length > 0) {
+                    // Current positions table
+                    const positionHeaders = ['Symbol', 'Type', 'Volume', 'Open Price', 'Current Price', 'Take Profit', 'Stop Loss', 'Profit', 'Commission', 'Swap', 'Holding Time'];
+                    const positionColWidths = [15, 12, 12, 18, 18, 15, 15, 18, 15, 12, 18];
+                    const positionTableWidth = positionColWidths.reduce((a, b) => a + b, 0);
+                    
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.rect(margin, yPos - 5, positionTableWidth, 8, 'F');
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    let posHeaderX = margin;
+                    positionHeaders.forEach((header, index) => {
+                        pdf.text(header, posHeaderX + 2, yPos);
+                        posHeaderX += positionColWidths[index];
+                    });
+                    
+                    yPos += 10;
+                    
+                    currentOpenTrades.forEach((trade, idx) => {
+                        // Check if we need a new page
+                        if (yPos > pageHeight - 50) {
+                            addFooter();
+                            currentPage++;
+                            pdf.addPage();
+                            addHeader(currentPage);
+                            yPos = 50;
+                            
+                            // Repeat table header
+                            pdf.setFillColor(240, 240, 240);
+                            pdf.rect(margin, yPos - 5, positionTableWidth, 8, 'F');
+                            
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setFontSize(7);
+                            pdf.setTextColor(0, 0, 0);
+                            
+                            posHeaderX = margin;
+                            positionHeaders.forEach((header, index) => {
+                                pdf.text(header, posHeaderX + 2, yPos);
+                                posHeaderX += positionColWidths[index];
+                            });
+                            
+                            yPos += 10;
+                        }
+                        
+                        // Alternate row background
+                        if (idx % 2 === 0) {
+                            pdf.setFillColor(248, 248, 248);
+                            pdf.rect(margin, yPos - 4, positionTableWidth, 7, 'F');
+                        }
+                        
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setFontSize(6);
+                        pdf.setTextColor(0, 0, 0);
+                        
+                        let holdingTime = '—';
+                        if (trade.holdingMs) {
+                            const days = Math.floor(trade.holdingMs / 86400000);
+                            const hours = Math.floor((trade.holdingMs % 86400000) / 3600000);
+                            const minutes = Math.floor((trade.holdingMs % 3600000) / 60000);
+                            holdingTime = `${String(days).padStart(2,'0')}D:${String(hours).padStart(2,'0')}H:${String(minutes).padStart(2,'0')}M`;
+                        }
+                        
+                        let posCellX = margin;
+                        const posCells = [
+                            trade.symbol,
+                            trade.type,
+                            trade.volume,
+                            trade.openPrice,
+                            trade.currentPrice,
+                            trade.takeProfit || '—',
+                            trade.stopLoss || '—',
+                            (trade.profit >= 0 ? '+' : '') + '$' + trade.profit.toFixed(2),
+                            '$' + trade.commission.toFixed(2),
+                            '$' + trade.swap.toFixed(2),
+                            holdingTime
+                        ];
+                        
+                        posCells.forEach((cell, index) => {
+                            pdf.text(cell.substring(0, 12), posCellX + 2, yPos);
+                            posCellX += positionColWidths[index];
+                        });
+                        
+                        yPos += 7;
+                    });
+                    
+                    // Add position summary
+                    const totalPosVolume = currentOpenTrades.reduce((sum, t) => sum + parseFloat(t.volume) || 0, 0);
+                    const totalPosProfit = currentOpenTrades.reduce((sum, t) => sum + t.profit, 0);
+                    const totalPosCommission = currentOpenTrades.reduce((sum, t) => sum + t.commission, 0);
+                    const totalPosSwap = currentOpenTrades.reduce((sum, t) => sum + t.swap, 0);
+                    
+                    yPos += 5;
+                    pdf.setFillColor(230, 230, 230);
+                    pdf.rect(margin, yPos - 4, positionTableWidth, 7, 'F');
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(6);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    let summaryX = margin;
+                    pdf.text('Summary', summaryX + 2, yPos);
+                    summaryX += 40;
+                    pdf.text('Vol: ' + totalPosVolume.toFixed(2), summaryX + 2, yPos);
+                    summaryX += 30;
+                    pdf.text('P/L: ' + (totalPosProfit >= 0 ? '+' : '') + '$' + totalPosProfit.toFixed(2), summaryX + 2, yPos);
+                    summaryX += 30;
+                    pdf.text('Comm: $' + totalPosCommission.toFixed(2), summaryX + 2, yPos);
+                    summaryX += 30;
+                    pdf.text('Swap: $' + totalPosSwap.toFixed(2), summaryX + 2, yPos);
+                    
+                    yPos += 10;
+                } else {
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text('No current open positions', margin, yPos);
+                    yPos += 10;
+                }
+                
+                yPos += 5;
+                
+                // Add monthly return table - always start on new page
+                addFooter();
+                currentPage++;
+                pdf.addPage();
+                addHeader(currentPage);
+                yPos = 50;
+                
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(14);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Monthly Returns (%)', margin, yPos);
+                yPos += 15;
+                
+                // Generate monthly return data
+                const trades = processedList.filter(i => !i.isFunding && i.tradeReturnPercent !== undefined);
+                if (trades.length > 0) {
+                    const monthlyMap = {};
+                    trades.forEach(t => {
+                        const r = t.tradeReturnPercent / 100;
+                        const mKey = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+                        monthlyMap[mKey] = (monthlyMap[mKey] === undefined ? 1 : monthlyMap[mKey]) * (1 + r);
+                    });
+                    
+                    // Convert compounded values to percentage returns
+                    Object.keys(monthlyMap).forEach(key => {
+                        monthlyMap[key] = (monthlyMap[key] - 1) * 100;
+                    });
+                    
+                    let firstDate = trades[0].date, lastDate = trades[trades.length - 1].date;
+                    const yearsMap = {};
+                    let currY = firstDate.getFullYear(), currM = firstDate.getMonth();
+                    const stopY = lastDate.getFullYear(), stopM = lastDate.getMonth();
+                    while (currY < stopY || (currY === stopY && currM <= stopM)) {
+                        const key = `${currY}-${currM}`;
+                        if (!yearsMap[currY]) yearsMap[currY] = Array(12).fill(null);
+                        yearsMap[currY][currM] = monthlyMap.hasOwnProperty(key) ? monthlyMap[key] : null;
+                        currM++; if (currM > 11) { currM = 0; currY++; }
+                    }
+                    
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const sortedYears = Object.keys(yearsMap).sort((a, b) => b - a);
+                    
+                    // Table header
+                    const monthlyColWidth = 10;
+                    const yearColWidth = 12;
+                    const totalColWidth = 14;
+                    const monthlyTableWidth = yearColWidth + (12 * monthlyColWidth) + totalColWidth;
+                    
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.rect(margin, yPos - 4, monthlyTableWidth, 7, 'F');
+                    
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(6);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    let headerX = margin;
+                    pdf.text('Year', headerX + 2, yPos);
+                    headerX += yearColWidth;
+                    
+                    months.forEach(month => {
+                        pdf.text(month, headerX + 2, yPos);
+                        headerX += monthlyColWidth;
+                    });
+                    
+                    pdf.text('Total', headerX + 2, yPos);
+                    yPos += 9;
+                    
+                    // Table rows
+                    sortedYears.forEach(year => {
+                        // Check if we need a new page (more conservative threshold)
+                        if (yPos > pageHeight - 35) {
+                            addFooter();
+                            currentPage++;
+                            pdf.addPage();
+                            addHeader(currentPage);
+                            yPos = 50;
+                            
+                            // Repeat table header on new page
+                            pdf.setFillColor(240, 240, 240);
+                            pdf.rect(margin, yPos - 4, monthlyTableWidth, 7, 'F');
+                            
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(0, 0, 0);
+                            
+                            let headerX = margin;
+                            pdf.text('Year', headerX + 2, yPos);
+                            headerX += yearColWidth;
+                            
+                            months.forEach(month => {
+                                pdf.text(month, headerX + 2, yPos);
+                                headerX += monthlyColWidth;
+                            });
+                            
+                            pdf.text('Total', headerX + 2, yPos);
+                            yPos += 9;
+                        }
+                        
+                        // Alternate row background
+                        const rowIndex = sortedYears.indexOf(year);
+                        if (rowIndex % 2 === 0) {
+                            pdf.setFillColor(248, 248, 248);
+                            pdf.rect(margin, yPos - 3, monthlyTableWidth, 6, 'F');
+                        }
+                        
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setFontSize(5);
+                        pdf.setTextColor(0, 0, 0);
+                        
+                        let rowX = margin;
+                        pdf.text(year, rowX + 2, yPos);
+                        rowX += yearColWidth;
+                        
+                        let annualTotal = 0;
+                        for (let m = 0; m < 12; m++) {
+                            const val = yearsMap[year][m];
+                            if (val === null) {
+                                pdf.text('—', rowX + 2, yPos);
+                            } else {
+                                annualTotal += val;
+                                pdf.text((val > 0 ? '+' : '') + val.toFixed(1) + '%', rowX + 2, yPos);
+                            }
+                            rowX += monthlyColWidth;
+                        }
+                        
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.text((annualTotal > 0 ? '+' : '') + annualTotal.toFixed(1) + '%', rowX + 2, yPos);
+                        yPos += 6;
+                    });
+                    
+                    yPos += 5;
+                }
+                
+                addFooter();
+                
+                // PAGE 2+: TRANSACTIONS TABLE
+                currentPage++;
+                pdf.addPage();
+                addHeader(currentPage);
+                
+                yPos = 50;
+                
+                // Table title
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(14);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Complete Transaction Ledger', margin, yPos);
+                yPos += 12;
+                
+                // Table headers
+                const headers = ['In Time', 'Out Time', 'Symbol', 'Type', 'Volume', 'In Price', 'Out Price', 'Profit', 'Gain %', 'Commission', 'Swap', 'Magic', 'Holding Time'];
+                const colWidths = [25, 25, 15, 12, 12, 18, 18, 18, 12, 15, 12, 12, 18];
+                const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+                const startX = margin;
+                const headerY = yPos;
+                
+                pdf.setFillColor(240, 240, 240);
+                pdf.rect(startX, headerY - 5, tableWidth, 8, 'F');
+                
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(7);
+                pdf.setTextColor(0, 0, 0);
+                
+                let headerX = startX;
+                headers.forEach((header, index) => {
+                    pdf.text(header, headerX + 2, headerY);
+                    headerX += colWidths[index];
+                });
+                
+                yPos += 10;
+                
+                // Table rows
                 const displayList = [...processedList].reverse();
-
+                const rowHeight = 7;
+                const maxRowsPerPage = Math.floor((pageHeight - 35 - 25 - 45) / rowHeight); // Account for header (35), footer (25), and margins (45)
+                
                 displayList.forEach((item, idx) => {
+                    // Check if we need a new page
+                    if (idx > 0 && idx % maxRowsPerPage === 0) {
+                        addFooter();
+                        currentPage++;
+                        pdf.addPage();
+                        addHeader(currentPage);
+                        
+                        yPos = 50;
+                        
+                        // Repeat table header on new page
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(startX, yPos - 5, tableWidth, 8, 'F');
+                        
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setFontSize(7);
+                        pdf.setTextColor(0, 0, 0);
+                        
+                        headerX = startX;
+                        headers.forEach((header, index) => {
+                            pdf.text(header, headerX + 2, yPos);
+                            headerX += colWidths[index];
+                        });
+                        
+                        yPos += 10;
+                    }
+                    
                     const isFunding = item.isFunding;
                     let holdingTime = '—';
                     if (!isFunding && item.openDate && item.date && !isNaN(item.openDate.getTime()) && !isNaN(item.date.getTime())) {
@@ -2636,63 +3426,55 @@
                         else typeText = 'Trade';
                     }
 
-                    const profitColor = item.profit >= 0 ? '#10b981' : '#ef4444';
                     const gainText = !isFunding ? `${item.profit >= 0 ? '+' : ''}${item.tradeReturnPercent.toFixed(2)}%` : '—';
-                    const gainColor = item.profit >= 0 ? '#10b981' : '#ef4444';
-                    const rowBg = idx % 2 === 0 ? '#000000' : '#0a0a0a';
-
-                    const cells = [
-                        `<td style="padding:6px 10px;color:#71717a;font-family:monospace;white-space:nowrap;">${item.rawOpenDate || item.rawDate}</td>`,
-                        `<td style="padding:6px 10px;color:#71717a;font-family:monospace;white-space:nowrap;">${item.rawDate}</td>`,
-                        `<td style="padding:6px 10px;color:#f4f4f5;font-weight:700;">${item.symbol || '—'}</td>`,
-                        `<td style="padding:6px 10px;color:#a1a1aa;">${typeText}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;font-family:monospace;">${item.volume ? item.volume.toFixed(2) : '—'}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;font-family:monospace;">${item.openPrice ? item.openPrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:5}) : '—'}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;font-family:monospace;">${item.closePrice ? item.closePrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:5}) : '—'}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;font-weight:700;color:${profitColor};">${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;font-weight:700;color:${gainColor};">${gainText}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;color:#71717a;font-family:monospace;">${item.commission ? '$'+item.commission.toFixed(2) : '—'}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;color:#71717a;font-family:monospace;">${item.swap ? '$'+item.swap.toFixed(2) : '—'}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;color:#52525b;font-family:monospace;">${item.magic || '—'}</td>`,
-                        `<td style="padding:6px 10px;text-align:right;font-family:monospace;color:#a1a1aa;">${holdingTime}</td>`,
-                    ];
-                    const tr = document.createElement('tr');
-                    tr.style.background = rowBg;
-                    tr.innerHTML = cells.join('');
-                    tbody.appendChild(tr);
-                });
-
-                table.appendChild(tbody);
-                container.appendChild(table);
-                document.body.appendChild(container);
-
-                try {
-                    const canvas = await html2canvas(container, {
-                        backgroundColor: '#000000',
-                        scale: 2,
-                        useCORS: true,
-                        logging: false,
-                        windowWidth: 1464
-                    });
-
-                    const imgData = canvas.toDataURL('image/png');
-                    // Landscape A4 for wide table
-                    const pdf = new jsPDF('l', 'mm', 'a4');
-                    const pdfW = pdf.internal.pageSize.getWidth();
-                    const pdfH = pdf.internal.pageSize.getHeight();
-                    const imgW = pdfW;
-                    const imgH = (canvas.height * pdfW) / canvas.width;
-
-                    let yOffset = 0;
-                    while (yOffset < imgH) {
-                        if (yOffset > 0) pdf.addPage();
-                        pdf.addImage(imgData, 'PNG', 0, -yOffset, imgW, imgH);
-                        yOffset += pdfH;
+                    
+                    // Alternate row background (black and white only)
+                    if (idx % 2 === 0) {
+                        pdf.setFillColor(248, 248, 248);
+                        pdf.rect(startX, yPos - 4, tableWidth, rowHeight, 'F');
                     }
-
-                    pdf.save(`ROWRIC_Transactions_${Date.now()}.pdf`);
-                } finally {
-                    document.body.removeChild(container);
+                    
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(6);
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    let cellX = startX;
+                    const cells = [
+                        item.rawOpenDate || item.rawDate,
+                        item.rawDate,
+                        item.symbol || '—',
+                        typeText,
+                        item.volume ? item.volume.toFixed(2) : '—',
+                        item.openPrice ? item.openPrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:5}) : '—',
+                        item.closePrice ? item.closePrice.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:5}) : '—',
+                        (item.profit >= 0 ? '+' : '') + '$' + item.profit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}),
+                        gainText,
+                        item.commission ? '$'+item.commission.toFixed(2) : '—',
+                        item.swap ? '$'+item.swap.toFixed(2) : '—',
+                        item.magic || '—',
+                        holdingTime
+                    ];
+                    
+                    cells.forEach((cell, index) => {
+                        pdf.setTextColor(0, 0, 0); // Black text for all columns
+                        pdf.text(cell.substring(0, 15), cellX + 2, yPos); // Truncate long text
+                        cellX += colWidths[index];
+                    });
+                    
+                    yPos += rowHeight;
+                });
+                
+                addFooter();
+                
+                console.log('PDF generation complete, saving file...');
+                const fileName = `ROWRIC_Institutional_Report_${Date.now()}.pdf`;
+                console.log('Saving as:', fileName);
+                pdf.save(fileName);
+                console.log('PDF file saved successfully');
+                
+                } catch (error) {
+                    console.error('Error during PDF export:', error);
+                    alert('Error generating PDF: ' + error.message);
                 }
             }
 
