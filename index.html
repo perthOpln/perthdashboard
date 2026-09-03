@@ -2524,7 +2524,7 @@
                         if (prob === 0) { el.innerText = "0.00%"; el.className = "py-4 text-center font-medium val-neutral"; }
                         else { el.innerText = "< 0.01%"; el.className = "py-4 text-center font-medium val-pos"; }
                     } else if (prob >= 99.99) { el.innerText = root === 1 ? "100.00%" : "99.99%"; el.className = "py-4 text-center font-medium val-neg"; }
-                    else { el.innerText = `${prob.toFixed(2)}%`; el.className = `py-4 text-center font-medium ${prob > 50 ? 'val-neg' : prob > 10 ? 'text-zinc-400' : 'val-pos'}`; }
+                    else { el.innerText = `${prob.toFixed(2)}%`; el.className = `py-4 text-center font-medium ${prob > 50 ? 'val-neg' : prob > 5 ? 'text-zinc-400' : 'val-pos'}`; }
                 }
             }
 
