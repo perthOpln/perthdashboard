@@ -1762,39 +1762,49 @@
 
                 let totalNetProfit = effectiveList.reduce((sum, item, idx) => (idx === 0 || item.isFunding) ? sum : sum + item.profit, 0) + totalUnrealizedPL;
 
-                document.getElementById('metric-twr-gain').textContent = combinedGain.toFixed(2) + '%';
+                const twrGainElement = document.getElementById('metric-twr-gain');
+                twrGainElement.textContent = combinedGain.toFixed(2) + '%';
+                // Update color class based on value
+                twrGainElement.classList.remove('val-pos', 'val-neg', 'val-neutral');
+                if (combinedGain > 0) {
+                    twrGainElement.classList.add('val-pos');
+                } else if (combinedGain < 0) {
+                    twrGainElement.classList.add('val-neg');
+                } else {
+                    twrGainElement.classList.add('val-neutral');
+                }
                 document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
                 document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
                 document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined,{maximumFractionDigits:2});
                 let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
                 document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
 
-                // ---- Max & Current Drawdown (Peak-to-Trough on Gain %) ----
-                // Look at per-trade period: find highest gain % and lowest gain %, then calculate drawdown
-                let highestGain = -Infinity, lowestGain = Infinity;
-                effectiveList.forEach((item, idx) => {
-                    // Use same gain calculation as chart: first at 0%, no unrealized
-                    const adjustedGain = idx === 0 ? 0 : item.gainPercent;
-                    if (adjustedGain > highestGain) highestGain = adjustedGain;
-                    if (adjustedGain < lowestGain) lowestGain = adjustedGain;
+                // ---- Max & Current Drawdown (using running peak like underwater chart) ----
+                // Calculate drawdown series using running peak approach (same as underwater chart)
+                let runningPeak = -Infinity;
+                const ddSeries = effectiveList.map((item, idx) => {
+                    const isLast = idx === effectiveList.length - 1;
+                    // Add unrealized to the last point to match current drawdown calculation
+                    const gainWithUnrealized = isLast ? item.gainPercent + unrealizedGainPercent : item.gainPercent;
+                    if (gainWithUnrealized > runningPeak) runningPeak = gainWithUnrealized;
+                    // Calculate drawdown as percentage from peak: (current - peak) / (100 + peak) * 100
+                    const currentValue = 100 + gainWithUnrealized;
+                    const peakValue = 100 + runningPeak;
+                    const drawdown = ((currentValue - peakValue) / peakValue) * 100;
+                    return parseFloat(drawdown.toFixed(2));
                 });
 
-                // Convert to absolute values: (100 + gain%) and calculate drawdown from peak to trough
-                const peakValue = 100 + highestGain;
-                const troughValue = 100 + lowestGain;
-                const maxDrawdown = peakValue > 0 ? ((peakValue - troughValue) / peakValue) * 100 : 0;
+                // Max drawdown is the minimum (most negative) value from the drawdown series
+                const maxDrawdown = Math.min(...ddSeries);
 
-                // Current drawdown: from highest gain to current gain (including unrealized)
-                const currentGainWithUnrealized = chartFinalGain + unrealizedGainPercent;
-                const currentValue = 100 + currentGainWithUnrealized;
-                let currentDrawdown = peakValue > 0 ? ((peakValue - currentValue) / peakValue) * 100 : 0;
-                currentDrawdown = Math.max(0, currentDrawdown);
+                // Current drawdown is the last value from the drawdown series
+                const currentDrawdown = ddSeries[ddSeries.length - 1];
 
                 document.getElementById('metric-max-drawdown').textContent = maxDrawdown.toFixed(2) + '%';
                 document.getElementById('metric-current-drawdown').textContent = currentDrawdown.toFixed(2) + '%';
                 if (!isNaN(finalBalanceWithUnrealized)) latestPortfolioBalance = finalBalanceWithUnrealized;
 
-                console.log('Max drawdown calculated:', maxDrawdown, 'current drawdown:', currentDrawdown, 'highestGain:', highestGain, 'lowestGain:', lowestGain);
+                console.log('Max drawdown calculated:', maxDrawdown, 'current drawdown:', currentDrawdown, 'using running peak approach');
                 window.__latestMaxDrawdownPercent = maxDrawdown;
                 window.__latestCurrentDrawdownPercent = currentDrawdown;
                 window.__latestNetProfit = totalNetProfit;
