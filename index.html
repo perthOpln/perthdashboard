@@ -253,6 +253,32 @@
                 </div>
             </div>
 
+            <!-- Date Range Filter -->
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-3 shadow-sm">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days text-zinc-500 text-sm"></i>
+                        <span class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Date Range Filter</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider">From:</label>
+                            <input type="date" id="date-from" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 140px;">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider">To:</label>
+                            <input type="date" id="date-to" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 140px;">
+                        </div>
+                        <button onclick="applyDateFilter()" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-filter text-[9px]"></i> Apply Filter
+                        </button>
+                        <button onclick="clearDateFilter()" class="px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white hover:bg-zinc-600 flex items-center gap-1.5">
+                            <i class="fa-solid fa-times text-[9px]"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div id="capture-area" class="space-y-6">
 
             <!-- Top Metric Cards -->
@@ -674,8 +700,12 @@
             // ============================================================
             let rawCSVData = [];
             let processedList = [];      // full processed transaction/trade list (cached)
+            let filteredProcessedList = []; // filtered transaction/trade list (date range)
             let cachedTotalDeposits = 0;
             let cachedTotalWithdrawals = 0;
+            let dateFilterEnabled = false;
+            let dateFilterFrom = null;
+            let dateFilterTo = null;
             let chartInstance = null, drawdownChartInstance = null, durationChartInstance = null;
             let attributionChartInstance = null, hourlyChartInstance = null, dailyPatternChartInstance = null, mcChartInstance = null;
             let drawdownDistributionChartInstance = null;
@@ -1422,6 +1452,112 @@
             }
 
             // ============================================================
+            // DATE RANGE FILTERING
+            // ============================================================
+            function applyDateFilter() {
+                const fromDateInput = document.getElementById('date-from').value;
+                const toDateInput = document.getElementById('date-to').value;
+                
+                if (!fromDateInput && !toDateInput) {
+                    alert('Please select at least one date for filtering');
+                    return;
+                }
+                
+                dateFilterFrom = fromDateInput ? new Date(fromDateInput) : null;
+                dateFilterTo = toDateInput ? new Date(toDateInput) : null;
+                
+                // Set end date to end of day
+                if (dateFilterTo) {
+                    dateFilterTo.setHours(23, 59, 59, 999);
+                }
+                
+                dateFilterEnabled = true;
+                filterByDateRange();
+            }
+            
+            function clearDateFilter() {
+                dateFilterEnabled = false;
+                dateFilterFrom = null;
+                dateFilterTo = null;
+                document.getElementById('date-from').value = '';
+                document.getElementById('date-to').value = '';
+                
+                // Reset to full data
+                filteredProcessedList = [...processedList];
+                updateDashboardMetrics(filteredProcessedList, cachedTotalDeposits, cachedTotalWithdrawals);
+                generateMonthlyReturns(filteredProcessedList);
+                renderDrawdownHeatmap(filteredProcessedList);
+                renderDrawdownDistribution(filteredProcessedList);
+                populateHistoryTable(filteredProcessedList);
+                renderChart(filteredProcessedList);
+                computeInstitutionMetrics(filteredProcessedList, cachedTotalDeposits);
+            }
+            
+            function filterByDateRange() {
+                if (!dateFilterEnabled || !processedList.length) {
+                    filteredProcessedList = [...processedList];
+                    return;
+                }
+                
+                filteredProcessedList = processedList.filter(item => {
+                    const itemDate = item.date;
+                    
+                    // Check if item date is within range
+                    if (dateFilterFrom && itemDate < dateFilterFrom) return false;
+                    if (dateFilterTo && itemDate > dateFilterTo) return false;
+                    
+                    return true;
+                });
+                
+                // Recalculate cumulative metrics for filtered data
+                recalculateFilteredMetrics();
+                
+                // Update dashboard with filtered data
+                updateDashboardMetrics(filteredProcessedList, cachedTotalDeposits, cachedTotalWithdrawals);
+                generateMonthlyReturns(filteredProcessedList);
+                renderDrawdownHeatmap(filteredProcessedList);
+                renderDrawdownDistribution(filteredProcessedList);
+                populateHistoryTable(filteredProcessedList);
+                renderChart(filteredProcessedList);
+                computeInstitutionMetrics(filteredProcessedList, cachedTotalDeposits);
+            }
+            
+            function recalculateFilteredMetrics() {
+                if (!filteredProcessedList.length) return;
+                
+                // Recalculate cumulative gains for the filtered period
+                let currentCumulativeTWR = 1.0;
+                let currentCumulativeAdditive = 0.0;
+                
+                // Find the first non-funding trade to establish baseline
+                let firstTradeIndex = filteredProcessedList.findIndex(item => !item.isFunding);
+                let baseGain = 0;
+                
+                if (firstTradeIndex > 0) {
+                    // Use the gain from the last funding transaction before first trade as baseline
+                    const lastFunding = filteredProcessedList.slice(0, firstTradeIndex).reverse().find(item => item.isFunding);
+                    if (lastFunding) {
+                        baseGain = lastFunding.gainPercent;
+                    }
+                }
+                
+                filteredProcessedList.forEach((item, idx) => {
+                    if (!item.isFunding && item.tradeReturnPercent !== undefined) {
+                        const r = item.tradeReturnPercent / 100;
+                        currentCumulativeTWR *= (1.0 + r);
+                        currentCumulativeAdditive += (r * 100);
+                    }
+                    
+                    // Adjust gain to be relative to filtered period start
+                    const currentGain = gainCalculationMethod === 'additive' 
+                        ? currentCumulativeAdditive 
+                        : (currentCumulativeTWR - 1.0) * 100;
+                    
+                    item.gainPercent = currentGain - baseGain;
+                });
+            }
+
+            // ============================================================
             // CORE PORTFOLIO ENGINE (Myfxbook-style TWR bookkeeping)
             // ============================================================
             function processPortfolio() {
@@ -1574,15 +1710,21 @@
                 cachedTotalWithdrawals = totalWithdrawals;
                 recomputeSharedUnrealized(processedList, totalDeposits);
 
-                updateDashboardMetrics(processedList, totalDeposits, totalWithdrawals);
-                generateMonthlyReturns(processedList);
-                renderDrawdownHeatmap(processedList);
-                renderDrawdownDistribution(processedList);
-                populateHistoryTable(processedList);
-                renderChart(processedList);
-
-                // Heavy Institution analytics — only on full 15s refresh, not the 1s open-trade tick
-                computeInstitutionMetrics(processedList, totalDeposits);
+                // Initialize filtered list with full data
+                filteredProcessedList = [...processedList];
+                
+                // Apply date filter if enabled
+                if (dateFilterEnabled) {
+                    filterByDateRange();
+                } else {
+                    updateDashboardMetrics(processedList, totalDeposits, totalWithdrawals);
+                    generateMonthlyReturns(processedList);
+                    renderDrawdownHeatmap(processedList);
+                    renderDrawdownDistribution(processedList);
+                    populateHistoryTable(processedList);
+                    renderChart(processedList);
+                    computeInstitutionMetrics(processedList, totalDeposits);
+                }
             }
 
             function getStandardDeviation(array) {
@@ -1596,8 +1738,10 @@
             // TOP-LEVEL DASHBOARD METRICS (fast, safe to run every 1s)
             // ============================================================
             function updateDashboardMetrics(list, totalDeposits, totalWithdrawals) {
-                if (list.length === 0) return;
-                const finalRow = list[list.length - 1];
+                // Use filtered list if date filter is enabled, otherwise use full list
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                if (effectiveList.length === 0) return;
+                const finalRow = effectiveList[effectiveList.length - 1];
                 const finalGain = finalRow.gainPercent;
                 const finalBalance = finalRow.balance;
 
@@ -1606,8 +1750,8 @@
                 const unrealizedGainPercent = sharedUnrealizedGainPercent;
 
                 // Calculate final gain (chart now shows closed trades only)
-                const lastIndex = list.length - 1;
-                const chartFinalGain = lastIndex === 0 ? 0 : list[lastIndex].gainPercent;
+                const lastIndex = effectiveList.length - 1;
+                const chartFinalGain = lastIndex === 0 ? 0 : effectiveList[lastIndex].gainPercent;
                 const finalGainWithUnrealized = chartFinalGain + unrealizedGainPercent;
                 const finalBalanceWithUnrealized = finalBalance + totalUnrealizedPL;
 
@@ -1616,7 +1760,7 @@
 
                 console.log('GAIN calculation - chartFinalGain:', chartFinalGain, 'unrealizedGainPercent:', unrealizedGainPercent, 'combinedGain:', combinedGain, 'totalUnrealizedPL:', totalUnrealizedPL);
 
-                let totalNetProfit = list.reduce((sum, item, idx) => (idx === 0 || item.isFunding) ? sum : sum + item.profit, 0) + totalUnrealizedPL;
+                let totalNetProfit = effectiveList.reduce((sum, item, idx) => (idx === 0 || item.isFunding) ? sum : sum + item.profit, 0) + totalUnrealizedPL;
 
                 document.getElementById('metric-twr-gain').textContent = combinedGain.toFixed(2) + '%';
                 document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1628,7 +1772,7 @@
                 // ---- Max & Current Drawdown (Peak-to-Trough on Gain %) ----
                 // Look at per-trade period: find highest gain % and lowest gain %, then calculate drawdown
                 let highestGain = -Infinity, lowestGain = Infinity;
-                list.forEach((item, idx) => {
+                effectiveList.forEach((item, idx) => {
                     // Use same gain calculation as chart: first at 0%, no unrealized
                     const adjustedGain = idx === 0 ? 0 : item.gainPercent;
                     if (adjustedGain > highestGain) highestGain = adjustedGain;
@@ -1657,7 +1801,7 @@
                 window.__latestInitialDeposit = initialDeposit;
                 window.__latestFinalBalance = finalBalanceWithUnrealized;
 
-                const trades = list.filter(item => !item.isFunding);
+                const trades = effectiveList.filter(item => !item.isFunding);
                 const totalTrades = trades.length;
                 const winningTrades = trades.filter(t => t.profit > 0);
                 const losingTrades = trades.filter(t => t.profit < 0);
@@ -1675,7 +1819,7 @@
 
                 const monthlyGainsMap = {};
                 let firstDate = null, lastDate = null;
-                list.forEach(item => {
+                effectiveList.forEach(item => {
                     const y = item.date.getFullYear(), m = item.date.getMonth(), key = `${y}-${m}`;
                     monthlyGainsMap[key] = item.gainPercent;
                     if (!firstDate || item.date < firstDate) firstDate = item.date;
@@ -1712,8 +1856,11 @@
                 if (!tbody) return;
                 tbody.innerHTML = '';
                 
+                // Use filtered list if date filter is enabled
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                
                 // Filter only non-funding trades for TWR calculation
-                const trades = list.filter(i => !i.isFunding && i.tradeReturnPercent !== undefined);
+                const trades = effectiveList.filter(i => !i.isFunding && i.tradeReturnPercent !== undefined);
                 if (trades.length === 0) { tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>'; return; }
 
                 // Build compounding monthly returns using TWR (same as 3rd party)
@@ -1835,7 +1982,9 @@
             function renderDrawdownHeatmap(list) {
                 const tbody = document.getElementById('drawdown-heatmap-body');
                 if (!tbody) return;
-                const { matrix, yearly } = computeDrawdownMatrix(list);
+                // Use filtered list if date filter is enabled
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                const { matrix, yearly } = computeDrawdownMatrix(effectiveList);
                 const sortedYears = Object.keys(matrix).sort((a, b) => b - a);
                 if (sortedYears.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>';
@@ -1917,8 +2066,11 @@
                 const canvas = document.getElementById('drawdownDistributionChart');
                 if (!canvas) return;
                 
+                // Use filtered list if date filter is enabled
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                
                 // Use the same Risk of Ruin formula as the table
-                const trades = list.filter(item => !item.isFunding);
+                const trades = effectiveList.filter(item => !item.isFunding);
                 const winsCount = trades.filter(t => t.profit > 0).length;
                 const lossesCount = trades.filter(t => t.profit < 0).length;
                 
@@ -2128,8 +2280,11 @@
                 const tbody = document.getElementById('transaction-rows');
                 const countEl = document.getElementById('history-count');
                 tbody.innerHTML = '';
-                countEl.textContent = `${list.length} Entries`;
-                const displayList = [...list].reverse();
+                
+                // Use filtered list if date filter is enabled
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                countEl.textContent = `${effectiveList.length} Entries`;
+                const displayList = [...effectiveList].reverse();
                 if (displayList.length === 0) { tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">Awaiting data records...</td></tr>`; return; }
 
                 displayList.forEach(item => {
@@ -2297,21 +2452,24 @@
                 const ctx = document.getElementById('equityChart').getContext('2d');
                 if (chartInstance) chartInstance.destroy();
 
+                // Use filtered list if date filter is enabled
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                
                 // Use shared unrealized gain percent for drawdown chart
                 const unrealizedGainPercent = sharedUnrealizedGainPercent;
 
                 let aggregatedData = [], labels = [];
                 if (activePeriodMode === 'trade') {
-                    labels = list.map((item, i) => `#${i + 1}`);
-                    aggregatedData = list.map((item, i) => ({ 
+                    labels = effectiveList.map((item, i) => `#${i + 1}`);
+                    aggregatedData = effectiveList.map((item, i) => ({ 
                         balance: item.balance, 
                         gainPercent: i === 0 ? 0 : item.gainPercent
                     }));
                 } else if (activePeriodMode === 'daily') {
                     const dailyMap = {};
                     let isFirstDaily = true;
-                    const sortedDates = [...new Set(list.map(item => item.date.toISOString().split('T')[0]))].sort();
-                    list.forEach(item => {
+                    const sortedDates = [...new Set(effectiveList.map(item => item.date.toISOString().split('T')[0]))].sort();
+                    effectiveList.forEach(item => {
                         const key = item.date.toISOString().split('T')[0];
                         if (isFirstDaily) {
                             dailyMap[key] = { balance: item.balance, gainPercent: 0 };
@@ -2327,8 +2485,8 @@
                 } else if (activePeriodMode === 'monthly') {
                     const monthlyMap = {};
                     let isFirstMonthly = true;
-                    const sortedKeys = [...new Set(list.map(item => `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`))].sort();
-                    list.forEach(item => {
+                    const sortedKeys = [...new Set(effectiveList.map(item => `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`))].sort();
+                    effectiveList.forEach(item => {
                         const key = `${item.date.getFullYear()}-${(item.date.getMonth()+1).toString().padStart(2,'0')}`;
                         if (isFirstMonthly) {
                             monthlyMap[key] = { balance: item.balance, gainPercent: 0 };
@@ -2344,8 +2502,8 @@
                 } else if (activePeriodMode === 'yearly') {
                     const yearlyMap = {};
                     let isFirstYearly = true;
-                    const sortedYears = [...new Set(list.map(item => item.date.getFullYear()))].sort();
-                    list.forEach(item => {
+                    const sortedYears = [...new Set(effectiveList.map(item => item.date.getFullYear()))].sort();
+                    effectiveList.forEach(item => {
                         const key = item.date.getFullYear();
                         if (isFirstYearly) {
                             yearlyMap[key] = { balance: item.balance, gainPercent: 0 };
@@ -2452,10 +2610,12 @@
             // Runs on live processedList — heavy (Monte Carlo), so only on 15s cycle
             // ============================================================
             function computeInstitutionMetrics(list, totalDeposits) {
-                const trades = list.filter(i => !i.isFunding && i.openDate && !isNaN(i.openDate.getTime()) && !isNaN(i.date.getTime()));
+                // Use filtered list if date filter is enabled
+                const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                const trades = effectiveList.filter(i => !i.isFunding && i.openDate && !isNaN(i.openDate.getTime()) && !isNaN(i.date.getTime()));
                 if (trades.length === 0) return;
 
-                const initialDeposit = totalDeposits > 0 ? totalDeposits : (list.length > 0 ? list[0].balance : 10000);
+                const initialDeposit = totalDeposits > 0 ? totalDeposits : (effectiveList.length > 0 ? effectiveList[0].balance : 10000);
                 const netProfit = window.__latestNetProfit || 0;
                 const maxDDPercent = window.__latestMaxDrawdownPercent || 0;
                 const maxDDCash = window.__latestMaxDrawdownCash || 0;
