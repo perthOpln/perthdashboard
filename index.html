@@ -237,7 +237,7 @@
             <!-- Header / World Clocks -->
             <div class="bg-darkCard border border-zinc-800 rounded-xl p-2 shadow-sm flex flex-col gap-2">
                 <div class="flex flex-col items-center text-center gap-0.5 pt-1">
-                    <p id="user-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, Perth!</p>
+                    <p id="user-greeting" class="text-sm uppercase tracking-[0.35em] text-amber-300 font-semibold">Good Morning, PONGSAKORN!</p>
                     <p id="bangkok-text" class="text-[10px] text-slate-400">Bangkok: --:-- (UTC+7)</p>
                 </div>
                 <div class="flex flex-row flex-nowrap justify-center gap-1 mt-1 overflow-x-auto pb-1">
@@ -285,27 +285,6 @@
                         </button>
                         <button onclick="clearDateFilter()" class="px-3 py-1 text-xs rounded font-bold transition-all bg-zinc-700 text-white hover:bg-zinc-600 flex items-center gap-1.5">
                             <i class="fa-solid fa-times text-[9px]"></i> Clear
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Monthly Report Generator -->
-            <div class="bg-darkCard border border-zinc-800 rounded-xl p-3 shadow-sm">
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-file-pdf text-zinc-500 text-sm"></i>
-                        <span class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Monthly Report Generator</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-center gap-2 flex-wrap">
-                        <div class="flex items-center gap-2">
-                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider">Available Months:</label>
-                            <select id="report-month" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 140px;">
-                                <option value="">Select month...</option>
-                            </select>
-                        </div>
-                        <button onclick="generateMonthlyReport()" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5">
-                            <i class="fa-solid fa-download text-[9px]"></i> Generate Report
                         </button>
                     </div>
                 </div>
@@ -420,12 +399,12 @@
                                 <th class="px-4 py-2.5 col-symbol">Symbol</th>
                                 <th class="px-4 py-2.5 col-type">Type</th>
                                 <th class="px-4 py-2.5 text-right col-volume">Volume</th>
-                                <th class="px-4 py-2.5 text-right col-open-price">Open Price</th>
+                                <th class="px-4 py-2.5 text-right col-open-price">open</th>
                                 <th class="px-4 py-2.5 text-right col-tp">TP</th>
                                 <th class="px-4 py-2.5 text-right col-sl">SL</th>
-                                <th class="px-4 py-2.5 text-right col-current-price">Current Price</th>
+                                <th class="px-4 py-2.5 text-right col-current-price">current</th>
                                 <th class="px-4 py-2.5 text-right col-gain">Gain %</th>
-                                <th class="px-4 py-2.5 text-right col-commission">Commission</th>
+                                <th class="px-4 py-2.5 text-right col-commission">COM</th>
                                 <th class="px-4 py-2.5 text-right col-swap">Swap</th>
                                 <th class="px-4 py-2.5 text-right col-profit">Profit</th>
                                 <th class="px-4 py-2.5 text-right col-holding">Holding</th>
@@ -456,13 +435,13 @@
                                 <th class="px-4 py-2.5 text-left">In Time</th>
                                 <th class="px-4 py-2.5 text-left">Out Time</th>
                                 <th class="px-4 py-2.5 text-left">Symbol</th>
-                                <th class="px-4 py-2.5">Type</th>
-                                <th class="px-4 py-2.5 text-right">Volume</th>
+                                <th class="px-2 py-2.5">Type</th>
+                                <th class="px-2 py-2.5 text-right">Volume</th>
                                 <th class="px-4 py-2.5 text-right">In Price</th>
                                 <th class="px-4 py-2.5 text-right">Out Price</th>
                                 <th class="px-4 py-2.5 text-right">Profit</th>
                                 <th class="px-4 py-2.5 text-right">Gain %</th>
-                                <th class="px-4 py-2.5 text-right">Commission</th>
+                                <th class="px-4 py-2.5 text-right">COM</th>
                                 <th class="px-4 py-2.5 text-right">Swap</th>
                                 <th class="px-4 py-2.5 text-right">Magic</th>
                                 <th class="px-4 py-2.5 text-right">Holding Time</th>
@@ -713,6 +692,27 @@
 
             </div><!-- /capture-area -->
 
+            <!-- Monthly Report Generator -->
+            <div class="bg-darkCard border border-zinc-800 rounded-xl p-3 shadow-sm">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-file-pdf text-zinc-500 text-sm"></i>
+                        <span class="text-xs font-black uppercase text-zinc-500 tracking-[0.3em]">Monthly Report Generator</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <label class="text-[10px] text-zinc-400 uppercase tracking-wider">Available Months:</label>
+                            <select id="report-month" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 140px;">
+                                <option value="">Select month...</option>
+                            </select>
+                        </div>
+                        <button onclick="generateMonthlyReport()" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-download text-[9px]"></i> Generate Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         <div class="flex justify-center py-10">
             <button id="exportBtn" onclick="exportPDF()" class="px-6 py-3 sm:px-8 sm:py-4 rounded-full bg-white text-black text-[10px] uppercase tracking-[0.3em] sm:tracking-[0.4em] font-black hover:bg-zinc-100 transition-all flex items-center gap-2 sm:gap-3 shadow-2xl">
                 <i class="fa-solid fa-file-arrow-down text-sm"></i> Export Audit PDF
@@ -779,7 +779,7 @@
             // PIN LOCK
             // ============================================================
             const PIN_USERS = {
-                '120905': 'Perth',
+                '120905': 'PONGSAKORN',
                 '300350': 'Aom',
                 '061606': 'Dome'
             };
@@ -822,9 +822,9 @@
                         mainContent.style.display = 'block';
                         setTimeout(() => overlay.style.display = 'none', 650);
                         // Update greeting immediately after login
-                        const perthHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Australia/Perth' }).format(new Date()), 10);
+                        const bangkokHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Asia/Bangkok' }).format(new Date()), 10);
                         const greetingEl = document.getElementById('user-greeting');
-                        if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour, currentUser);
+                        if (greetingEl) greetingEl.textContent = getGreetingFromHour(bangkokHour, currentUser);
                     }, 350);
                 } else {
                     updatePinDots('error');
@@ -915,7 +915,7 @@
                 const offset = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName:'short' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
                 return { time, offset };
             }
-            function getGreetingFromHour(hour, user = 'Perth') {
+            function getGreetingFromHour(hour, user = 'PONGSAKORN') {
                 if (hour >= 5 && hour < 12) return `Good Morning, ${user}!`;
                 if (hour >= 12 && hour < 18) return `Good Afternoon, ${user}!`;
                 return `Good Evening, ${user}!`;
@@ -943,9 +943,9 @@
                 const bangkokInfo = getZoneInfo('Asia/Bangkok');
                 const bangkokText = document.getElementById('bangkok-text');
                 if (bangkokText) bangkokText.textContent = `Bangkok: ${bangkokInfo.time} (${bangkokInfo.offset})`;
-                const perthHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Australia/Perth' }).format(new Date()), 10);
+                const bangkokHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Asia/Bangkok' }).format(new Date()), 10);
                 const greetingEl = document.getElementById('user-greeting');
-                if (greetingEl) greetingEl.textContent = getGreetingFromHour(perthHour, currentUser || 'Perth');
+                if (greetingEl) greetingEl.textContent = getGreetingFromHour(bangkokHour, currentUser || 'PONGSAKORN');
             }
 
             // ============================================================
@@ -1395,7 +1395,7 @@
                         const holdingText = formatDuration(t.holdingMs);
                         const row = document.createElement('tr');
                         row.className = "hover:bg-zinc-900/60 transition-colors";
-                        const typeLabel = t.type.toLowerCase().includes('buy') ? 'Long' : t.type.toLowerCase().includes('sell') ? 'Short' : t.type;
+                        const typeLabel = t.type.toLowerCase().includes('buy') ? 'LONG' : t.type.toLowerCase().includes('sell') ? 'SHORT' : t.type;
                         const typeColor = t.type.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-rose-400';
                         row.innerHTML = `
                             <td class="px-4 py-2 text-slate-400 font-mono text-[11px] col-open-time">${t.time}</td>
@@ -2359,8 +2359,8 @@
                             : `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Withdrawals</span>`;
                     } else {
                         const tType = (item.type || '').toLowerCase();
-                        if (tType.includes('buy') || tType.includes('long')) typeBadge = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Long</span>`;
-                        else if (tType.includes('sell') || tType.includes('short')) typeBadge = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">Short</span>`;
+                        if (tType.includes('buy') || tType.includes('long')) typeBadge = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">LONG</span>`;
+                        else if (tType.includes('sell') || tType.includes('short')) typeBadge = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">SHORT</span>`;
                         else typeBadge = `<span class="bg-zinc-800 text-slate-300 border border-zinc-700 px-1.5 py-0.5 rounded text-[10px] font-bold">Trade</span>`;
                     }
                     let tradeGainText = '-';
@@ -2511,7 +2511,7 @@
 
                 let aggregatedData = [], labels = [];
                 if (activePeriodMode === 'trade') {
-                    labels = effectiveList.map((item, i) => `#${i + 1}`);
+                    labels = effectiveList.map((item, i) => `${i + 1}`);
                     aggregatedData = effectiveList.map((item, i) => ({ 
                         balance: item.balance, 
                         gainPercent: i === 0 ? 0 : item.gainPercent
@@ -2630,7 +2630,7 @@
                         responsive: true, maintainAspectRatio: false,
                         animation: isFirstChartRender ? { duration: 800, easing: 'easeOutQuart' } : false,
                         plugins: { legend: { display:false }, tooltip: { backgroundColor:'#09090b', titleColor:'#71717a', bodyColor:'#f8fafc', borderColor:'#27272a', borderWidth:1, padding:10, displayColors:false,
-                            callbacks: { label: (c) => activeChartType === 'gain' ? `Gain: ${c.raw}%` : `Balance: $${c.raw.toLocaleString(undefined,{minimumFractionDigits:2})}` } } },
+                            callbacks: { title: (c) => c[0].label.replace('#', ''), label: (c) => activeChartType === 'gain' ? `Gain: ${c.raw}%` : `Balance: $${c.raw.toLocaleString(undefined,{minimumFractionDigits:2})}` } } },
                         scales: {
                             x: { grid:{ color:'#18181b', drawTicks:false }, ticks:{ color:'#71717a', font:{size:10}, maxTicksLimit:8 } },
                             y: { grid:{ color:'#18181b', drawTicks:false }, ticks:{ color:'#71717a', font:{size:10}, callback: v => activeChartType === 'gain' ? v + '%' : '$' + v.toLocaleString() } }
@@ -2693,13 +2693,13 @@
                     data: { labels, datasets: [
                         { data: ddSeries, borderColor:'#ef4444', borderWidth:1.5, pointRadius:0, fill:'origin', backgroundColor:'rgba(239,68,68,0.15)', tension:0.1 },
                         // Horizontal dashed line at max drawdown
-                        ...(ddSeries.length > 0 ? [{ data: Array(ddSeries.length).fill(maxDrawdown), borderColor:'#ef4444', borderWidth:1, borderDash:[5,5], pointRadius:0, fill:false }] : [])
+                        ...(ddSeries.length > 0 ? [{ data: Array(ddSeries.length).fill(maxDrawdown), borderColor:'#ef4444', borderWidth:1, borderDash:[5,5], pointRadius:0, pointHoverRadius:0, fill:false }] : [])
                     ] },
                     options: {
                         responsive:true, maintainAspectRatio:false, interaction:{ intersect:false, mode:'index' },
                         animation: isFirstDrawdownRender ? { duration: 600, easing: 'easeOutQuart' } : false,
                         layout: { padding: { bottom: 30, left: 5, right: 5 } },
-                        plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(9,9,11,0.95)', callbacks:{ label:(c) => `Drawdown: ${c.parsed.y.toFixed(2)}%` } } },
+                        plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(9,9,11,0.95)', filter:(item) => item.datasetIndex === 0, callbacks:{ title: (c) => c[0].label.replace('#', ''), label:(c) => `Drawdown: ${c.parsed.y.toFixed(2)}%` } } },
                         scales: { x:{ display:false }, y:{ grid:{ color:'rgba(255,255,255,0.02)' }, ticks:{ color:'#52525b', font:{size:8}, padding: 10, callback:v=>v.toFixed(1)+'%' }, max:0 } }
                     }
                 });
@@ -4737,8 +4737,8 @@
                         typeText = item.profit >= 0 ? 'Deposit' : 'Withdrawal';
                     } else {
                         const t = (item.type || '').toLowerCase();
-                        if (t.includes('buy') || t.includes('long')) typeText = 'Long';
-                        else if (t.includes('sell') || t.includes('short')) typeText = 'Short';
+                        if (t.includes('buy') || t.includes('long')) typeText = 'LONG';
+                        else if (t.includes('sell') || t.includes('short')) typeText = 'SHORT';
                         else typeText = 'Trade';
                     }
 
