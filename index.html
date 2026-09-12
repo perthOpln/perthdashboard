@@ -369,8 +369,8 @@
                         </div>
                         <div class="relative w-full h-[120px] sm:h-[140px] mt-3 sm:mt-4">
                             <p class="text-[9px] font-black uppercase text-zinc-700 tracking-[0.3em] mb-1">Underwater Return Profile (%)</p>
-                            <div class="relative">
-                                <canvas id="drawdownChart"></canvas>
+                            <div class="relative" style="height: 100%;">
+                                <canvas id="drawdownChart" style="height: 100%;"></canvas>
                                 <div id="max-drawdown-label" class="chart-label text-red-400" style="display: none;">--%</div>
                             </div>
                         </div>
@@ -1837,6 +1837,10 @@
 
                 // Max drawdown is the minimum (most negative) value from the drawdown series
                 const maxDrawdown = Math.min(...ddSeries);
+                
+                // Calculate max drawdown in cash terms (simple approach using max drawdown % and initial balance)
+                const initialBalance = effectiveList.length > 0 ? effectiveList[0].balance : 10000;
+                const maxDrawdownCash = (maxDrawdown / 100) * initialBalance;
 
                 // Current drawdown is the last value from the drawdown series
                 const currentDrawdown = ddSeries[ddSeries.length - 1];
@@ -1846,8 +1850,10 @@
                 if (!isNaN(finalBalanceWithUnrealized)) latestPortfolioBalance = finalBalanceWithUnrealized;
 
                 console.log('Max drawdown calculated:', maxDrawdown, 'current drawdown:', currentDrawdown, 'using running peak approach');
+                console.log('Max drawdown cash calculated:', maxDrawdownCash);
                 window.__latestMaxDrawdownPercent = maxDrawdown;
                 window.__latestCurrentDrawdownPercent = currentDrawdown;
+                window.__latestMaxDrawdownCash = maxDrawdownCash;
                 window.__latestNetProfit = totalNetProfit;
                 window.__latestInitialDeposit = initialDeposit;
                 window.__latestFinalBalance = finalBalanceWithUnrealized;
@@ -2582,6 +2588,10 @@
                     highestGain = Math.max(...datasetValues);
                     lowestGain = Math.min(...datasetValues);
                 }
+                
+                // Store values for use in animation callback
+                const chartHighestGain = highestGain;
+                const chartLowestGain = lowestGain;
 
                 // Dynamic green/red line split at 0 for gain mode, solid blue for balance mode
                 const buildDynColor = (chart, pos, neg, neutral) => {
@@ -2628,7 +2638,40 @@
                     ] },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        animation: isFirstChartRender ? { duration: 800, easing: 'easeOutQuart' } : false,
+                        animation: isFirstChartRender ? { 
+                            duration: 800, 
+                            easing: 'easeOutQuart',
+                            onComplete: function() {
+                                // Position labels after animation completes
+                                setTimeout(() => {
+                                    if (activeChartType === 'gain' && datasetValues.length > 0) {
+                                        const highestLabel = document.getElementById('highest-gain-label');
+                                        const lowestLabel = document.getElementById('lowest-gain-label');
+                                        
+                                        if (chartInstance && chartInstance.scales && chartInstance.scales.y && chartInstance.chartArea) {
+                                            const yScale = chartInstance.scales.y;
+                                            const chartArea = chartInstance.chartArea;
+                                            
+                                            // Get pixel positions for the values
+                                            const highestPixel = yScale.getPixelForValue(chartHighestGain);
+                                            const lowestPixel = yScale.getPixelForValue(chartLowestGain);
+                                            
+                                            // Position labels above the lines
+                                            highestLabel.style.display = 'block';
+                                            highestLabel.style.top = (chartArea.top + highestPixel - 15) + 'px';
+                                            highestLabel.textContent = chartHighestGain.toFixed(2) + '%';
+                                            
+                                            lowestLabel.style.display = 'block';
+                                            lowestLabel.style.top = (chartArea.top + lowestPixel - 15) + 'px';
+                                            lowestLabel.textContent = chartLowestGain.toFixed(2) + '%';
+                                        }
+                                    } else {
+                                        document.getElementById('highest-gain-label').style.display = 'none';
+                                        document.getElementById('lowest-gain-label').style.display = 'none';
+                                    }
+                                }, 50);
+                            }
+                        } : false,
                         plugins: { legend: { display:false }, tooltip: { backgroundColor:'#09090b', titleColor:'#71717a', bodyColor:'#f8fafc', borderColor:'#27272a', borderWidth:1, padding:10, displayColors:false,
                             callbacks: { title: (c) => c[0].label.replace('#', ''), label: (c) => activeChartType === 'gain' ? `Gain: ${c.raw}%` : `Balance: $${c.raw.toLocaleString(undefined,{minimumFractionDigits:2})}` } } },
                         scales: {
@@ -2639,31 +2682,35 @@
                 });
                 isFirstChartRender = false;
 
-                // Position labels above the horizontal lines
-                if (activeChartType === 'gain' && datasetValues.length > 0) {
-                    const highestLabel = document.getElementById('highest-gain-label');
-                    const lowestLabel = document.getElementById('lowest-gain-label');
-                    
-                    if (chartInstance && chartInstance.scales && chartInstance.scales.y) {
-                        const yScale = chartInstance.scales.y;
-                        const chartArea = chartInstance.chartArea;
-                        
-                        // Get pixel positions for the values
-                        const highestPixel = yScale.getPixelForValue(highestGain);
-                        const lowestPixel = yScale.getPixelForValue(lowestGain);
-                        
-                        // Position labels above the lines
-                        highestLabel.style.display = 'block';
-                        highestLabel.style.top = (highestPixel - 15) + 'px';
-                        highestLabel.textContent = highestGain.toFixed(2) + '%';
-                        
-                        lowestLabel.style.display = 'block';
-                        lowestLabel.style.top = (lowestPixel - 15) + 'px';
-                        lowestLabel.textContent = lowestGain.toFixed(2) + '%';
-                    }
-                } else {
-                    document.getElementById('highest-gain-label').style.display = 'none';
-                    document.getElementById('lowest-gain-label').style.display = 'none';
+                // Position labels immediately if no animation (after first render)
+                if (!isFirstChartRender) {
+                    setTimeout(() => {
+                        if (activeChartType === 'gain' && datasetValues.length > 0) {
+                            const highestLabel = document.getElementById('highest-gain-label');
+                            const lowestLabel = document.getElementById('lowest-gain-label');
+                            
+                            if (chartInstance && chartInstance.scales && chartInstance.scales.y && chartInstance.chartArea) {
+                                const yScale = chartInstance.scales.y;
+                                const chartArea = chartInstance.chartArea;
+                                
+                                // Get pixel positions for the values
+                                const highestPixel = yScale.getPixelForValue(chartHighestGain);
+                                const lowestPixel = yScale.getPixelForValue(chartLowestGain);
+                                
+                                // Position labels above the lines
+                                highestLabel.style.display = 'block';
+                                highestLabel.style.top = (chartArea.top + highestPixel - 15) + 'px';
+                                highestLabel.textContent = chartHighestGain.toFixed(2) + '%';
+                                
+                                lowestLabel.style.display = 'block';
+                                lowestLabel.style.top = (chartArea.top + lowestPixel - 15) + 'px';
+                                lowestLabel.textContent = chartLowestGain.toFixed(2) + '%';
+                            }
+                        } else {
+                            document.getElementById('highest-gain-label').style.display = 'none';
+                            document.getElementById('lowest-gain-label').style.display = 'none';
+                        }
+                    }, 50);
                 }
 
                 // Underwater / drawdown chart (gain% basis, including unrealized for current point)
@@ -2686,6 +2733,9 @@
                 if (ddSeries.length > 0) {
                     maxDrawdown = Math.min(...ddSeries); // Most negative value = maximum drawdown
                 }
+                
+                // Store for use in animation callback
+                const chartMaxDrawdown = maxDrawdown;
                 const ddCtx = document.getElementById('drawdownChart').getContext('2d');
                 if (drawdownChartInstance) drawdownChartInstance.destroy();
                 drawdownChartInstance = new Chart(ddCtx, {
@@ -2697,7 +2747,34 @@
                     ] },
                     options: {
                         responsive:true, maintainAspectRatio:false, interaction:{ intersect:false, mode:'index' },
-                        animation: isFirstDrawdownRender ? { duration: 600, easing: 'easeOutQuart' } : false,
+                        animation: isFirstDrawdownRender ? { 
+                            duration: 600, 
+                            easing: 'easeOutQuart',
+                            onComplete: function() {
+                                // Position label after animation completes
+                                setTimeout(() => {
+                                    const maxDDLabel = document.getElementById('max-drawdown-label');
+                                    
+                                    if (drawdownChartInstance && drawdownChartInstance.scales && drawdownChartInstance.scales.y && drawdownChartInstance.chartArea) {
+                                        const yScale = drawdownChartInstance.scales.y;
+                                        const chartArea = drawdownChartInstance.chartArea;
+                                        
+                                        // Get pixel position for the max drawdown value (horizontal dashed line level)
+                                        const maxDDPixel = yScale.getPixelForValue(chartMaxDrawdown);
+                                        
+                                        // Position label above the horizontal dashed line on the right side
+                                        maxDDLabel.style.display = 'block';
+                                        maxDDLabel.style.top = (chartArea.top + maxDDPixel - 12) + 'px';
+                                        maxDDLabel.style.left = 'auto';
+                                        maxDDLabel.style.right = '5px';
+                                        maxDDLabel.style.transform = 'none';
+                                        maxDDLabel.textContent = chartMaxDrawdown.toFixed(2) + '%';
+                                    } else {
+                                        maxDDLabel.style.display = 'none';
+                                    }
+                                }, 50);
+                            }
+                        } : false,
                         layout: { padding: { bottom: 30, left: 5, right: 5 } },
                         plugins: { legend:{ display:false }, tooltip:{ enabled:true, backgroundColor:'rgba(9,9,11,0.95)', filter:(item) => item.datasetIndex === 0, callbacks:{ title: (c) => c[0].label.replace('#', ''), label:(c) => `Drawdown: ${c.parsed.y.toFixed(2)}%` } } },
                         scales: { x:{ display:false }, y:{ grid:{ color:'rgba(255,255,255,0.02)' }, ticks:{ color:'#52525b', font:{size:8}, padding: 10, callback:v=>v.toFixed(1)+'%' }, max:0 } }
@@ -2705,24 +2782,29 @@
                 });
                 isFirstDrawdownRender = false;
 
-                // Position max drawdown label above the horizontal line
-                if (ddSeries.length > 0) {
-                    const maxDDLabel = document.getElementById('max-drawdown-label');
-                    
-                    if (drawdownChartInstance && drawdownChartInstance.scales && drawdownChartInstance.scales.y) {
-                        const yScale = drawdownChartInstance.scales.y;
-                        const chartArea = drawdownChartInstance.chartArea;
+                // Position label immediately if no animation (after first render)
+                if (!isFirstDrawdownRender) {
+                    setTimeout(() => {
+                        const maxDDLabel = document.getElementById('max-drawdown-label');
                         
-                        // Get pixel position for the max drawdown value
-                        const maxDDPixel = yScale.getPixelForValue(maxDrawdown);
-                        
-                        // Position label above the line
-                        maxDDLabel.style.display = 'block';
-                        maxDDLabel.style.top = (maxDDPixel - 15) + 'px';
-                        maxDDLabel.textContent = maxDrawdown.toFixed(2) + '%';
-                    }
-                } else {
-                    document.getElementById('max-drawdown-label').style.display = 'none';
+                        if (drawdownChartInstance && drawdownChartInstance.scales && drawdownChartInstance.scales.y && drawdownChartInstance.chartArea) {
+                            const yScale = drawdownChartInstance.scales.y;
+                            const chartArea = drawdownChartInstance.chartArea;
+                            
+                            // Get pixel position for the max drawdown value (horizontal dashed line level)
+                            const maxDDPixel = yScale.getPixelForValue(chartMaxDrawdown);
+                            
+                            // Position label above the horizontal dashed line on the right side
+                            maxDDLabel.style.display = 'block';
+                            maxDDLabel.style.top = (chartArea.top + maxDDPixel - 12) + 'px';
+                            maxDDLabel.style.left = 'auto';
+                            maxDDLabel.style.right = '5px';
+                            maxDDLabel.style.transform = 'none';
+                            maxDDLabel.textContent = chartMaxDrawdown.toFixed(2) + '%';
+                        } else {
+                            maxDDLabel.style.display = 'none';
+                        }
+                    }, 50);
                 }
             }
 
@@ -2794,7 +2876,7 @@
                 const grossLoss = Math.abs(losses.reduce((s,t)=>s+t.profit,0));
                 const profitFactor = grossLoss > 0 ? grossProfit/grossLoss : (grossProfit > 0 ? Infinity : 0);
                 const winRate = (wins.length / (trades.length || 1)) * 100;
-                const recoveryFactor = netProfit / (maxDDCash || 1);
+                const recoveryFactor = netProfit / Math.abs(maxDDCash || 1);
                 const expectancy = netProfit / (trades.length || 1);
                 const avgWinAmt = wins.length ? grossProfit/wins.length : 0;
                 const avgLossAmt = losses.length ? grossLoss/losses.length : 0;
