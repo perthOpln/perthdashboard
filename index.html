@@ -3160,15 +3160,21 @@
                     stepDistributions[0].push(0);
                     for (let j = 0; j < numTrades; j++) {
                         const randomTrade = trades[Math.floor(Math.random() * numTrades)];
-                        const tradeImpact = balance * (randomTrade.returnPct / 100);
-                        balance += tradeImpact;
+                        // Proper compound gain: multiply by (1 + return percentage)
+                        balance = balance * (1 + randomTrade.returnPct / 100);
                         if (balance > runningMax) runningMax = balance;
                         if (balance <= 0) { balance = 0; maxDD = 100; break; }
                         const dd = ((runningMax - balance) / runningMax) * 100;
                         if (dd > maxDD) maxDD = dd;
+                        // Track stagnation (consecutive trades below running max)
+                        if (balance < runningMax) {
+                            currentStagnation++;
+                        } else {
+                            currentStagnation = 0;
+                        }
+                        maxStagnation = Math.max(maxStagnation, currentStagnation);
                         stepDistributions[j+1].push(((balance - initialDeposit) / initialDeposit) * 100);
                     }
-                    maxStagnation = Math.max(maxStagnation, currentStagnation);
                     const totalReturnPct = ((balance - initialDeposit) / initialDeposit) * 100;
                     finalReturns.push(totalReturnPct);
                     maxDrawdowns.push(maxDD);
