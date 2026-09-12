@@ -4966,15 +4966,196 @@
             }
 
                     async function exportPDF() {
-                const { jsPDF } = window.jspdf;
-                const area = document.getElementById('capture-area');
-                const canvas = await html2canvas(area, { backgroundColor:'#000000', scale:2, useCORS:true, logging:false, windowWidth:1440 });
-                const imgData = canvas.toDataURL('image/png');
-                const pdfWidth = 210;
-                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`ROWRIC_LIVE_AUDIT_${Date.now()}.pdf`);
+                try {
+                    console.log('Starting PDF export...');
+                    const { jsPDF } = window.jspdf;
+                    
+                    // Create a temporary container with only the sections we want to export
+                    const tempContainer = document.createElement('div');
+                    tempContainer.id = 'pdf-export-container';
+                    tempContainer.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 1400px;
+                        background: #000000;
+                        padding: 0;
+                        z-index: 10000;
+                        overflow: visible;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    `;
+                    
+                    // Get the sections we want to include
+                    const originalArea = document.getElementById('capture-area');
+                    if (!originalArea) {
+                        console.error('Could not find capture-area');
+                        alert('Error: Could not find dashboard content');
+                        return;
+                    }
+                    
+                    // 1. Top Metric Cards (Gain TWR, Max Drawdown, Current Drawdown)
+                    const metricCards = originalArea.querySelector('.grid.grid-cols-2.md\\:grid-cols-3.xl\\:grid-cols-6');
+                    if (metricCards) {
+                        const cardsClone = metricCards.cloneNode(true);
+                        cardsClone.style.marginBottom = '5px';
+                        cardsClone.style.gap = '8px';
+                        tempContainer.appendChild(cardsClone);
+                    }
+                    
+                    // 2. Equity Curve & Portfolio Gain section - clone with chart canvas
+                    const mainChartSection = originalArea.querySelector('.grid.grid-cols-1.gap-6');
+                    if (mainChartSection) {
+                        const chartClone = mainChartSection.cloneNode(true);
+                        chartClone.style.marginBottom = '5px';
+                        chartClone.style.width = '100%';
+                        chartClone.style.gap = '5px';
+                        
+                        // Force chart containers to use full width
+                        const chartContainers = chartClone.querySelectorAll('.relative');
+                        chartContainers.forEach(container => {
+                            container.style.width = '100%';
+                        });
+                        
+                        // Copy chart canvas content manually with full width
+                        const originalEquityCanvas = originalArea.querySelector('#equityChart');
+                        const originalDrawdownCanvas = originalArea.querySelector('#drawdownChart');
+                        const clonedEquityCanvas = chartClone.querySelector('#equityChart');
+                        const clonedDrawdownCanvas = chartClone.querySelector('#drawdownChart');
+                        
+                        if (originalEquityCanvas && clonedEquityCanvas) {
+                            // Set cloned canvas to full width
+                            clonedEquityCanvas.style.width = '100%';
+                            clonedEquityCanvas.style.maxWidth = '1400px';
+                            const ctx = clonedEquityCanvas.getContext('2d');
+                            ctx.drawImage(originalEquityCanvas, 0, 0, originalEquityCanvas.width, originalEquityCanvas.height, 0, 0, clonedEquityCanvas.width, clonedEquityCanvas.height);
+                        }
+                        if (originalDrawdownCanvas && clonedDrawdownCanvas) {
+                            // Set cloned canvas to full width
+                            clonedDrawdownCanvas.style.width = '100%';
+                            clonedDrawdownCanvas.style.maxWidth = '1400px';
+                            const ctx = clonedDrawdownCanvas.getContext('2d');
+                            ctx.drawImage(originalDrawdownCanvas, 0, 0, originalDrawdownCanvas.width, originalDrawdownCanvas.height, 0, 0, clonedDrawdownCanvas.width, clonedDrawdownCanvas.height);
+                        }
+                        
+                        tempContainer.appendChild(chartClone);
+                    }
+                    
+                    // 3. Institution Risk & Return Analytics section
+                    const institutionSection = Array.from(originalArea.children).find(child => 
+                        child.querySelector && child.querySelector('h4') && 
+                        child.querySelector('h4').textContent.includes('Institution Risk & Return Analytics')
+                    );
+                    if (institutionSection) {
+                        const instClone = institutionSection.cloneNode(true);
+                        instClone.style.marginBottom = '5px';
+                        instClone.style.padding = '10px';
+                        tempContainer.appendChild(instClone);
+                    }
+                    
+                    // 4. Risk Assessment section (without input fields)
+                    const riskSection = Array.from(originalArea.children).find(child => 
+                        child.querySelector && child.querySelector('h4') && 
+                        child.querySelector('h4').textContent.includes('Risk Assessment')
+                    );
+                    if (riskSection) {
+                        const riskClone = riskSection.cloneNode(true);
+                        // Remove the input controls section
+                        const inputControls = riskClone.querySelector('.flex.items-center.gap-6.mt-5');
+                        if (inputControls) {
+                            inputControls.remove();
+                        }
+                        riskClone.style.marginBottom = '5px';
+                        riskClone.style.padding = '10px';
+                        tempContainer.appendChild(riskClone);
+                    }
+                    
+                    // 5. Monthly Return Sheet section
+                    const monthlySection = Array.from(originalArea.children).find(child => 
+                        child.querySelector && child.querySelector('h4') && 
+                        child.querySelector('h4').textContent.includes('Monthly Return Sheet')
+                    );
+                    if (monthlySection) {
+                        const monthlyClone = monthlySection.cloneNode(true);
+                        monthlyClone.style.padding = '10px';
+                        tempContainer.appendChild(monthlyClone);
+                    }
+                    
+                    // Add container to body temporarily
+                    document.body.appendChild(tempContainer);
+                    
+                    console.log('Container created and added to DOM');
+                    
+                    // Wait for DOM to settle
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    console.log('Starting html2canvas capture...');
+                    
+                    // Capture the custom container
+                    const canvas = await html2canvas(tempContainer, {
+                        backgroundColor: '#000000',
+                        scale: 2,
+                        useCORS: true,
+                        logging: true,
+                        windowWidth: 1400,
+                        scrollX: 0,
+                        scrollY: 0,
+                        allowTaint: true,
+                        onclone: (clonedDoc) => {
+                            const clonedContainer = clonedDoc.getElementById('pdf-export-container');
+                            if (clonedContainer) {
+                                clonedContainer.style.width = '1400px';
+                                clonedContainer.style.overflow = 'visible';
+                                clonedContainer.style.height = 'auto';
+                            }
+                        }
+                    });
+                    
+                    console.log('Canvas captured successfully');
+                    
+                    const imgData = canvas.toDataURL('image/png', 1.0);
+                    
+                    // Calculate dimensions for A4 landscape
+                    const pdfWidth = 297;
+                    const pdfHeight = 210;
+                    
+                    const pdf = new jsPDF('l', 'mm', 'a4');
+                    
+                    // Set entire PDF background to black
+                    pdf.setFillColor(0, 0, 0);
+                    pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+                    
+                    // Calculate image dimensions to fill the page
+                    const imgWidth = pdfWidth;
+                    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+                    
+                    let finalWidth = imgWidth;
+                    let finalHeight = imgHeight;
+                    let xOffset = 0;
+                    let yOffset = 0;
+                    
+                    // Scale down if content is too tall
+                    if (imgHeight > pdfHeight) {
+                        const scale = pdfHeight / imgHeight;
+                        finalWidth = imgWidth * scale;
+                        finalHeight = pdfHeight;
+                        xOffset = (pdfWidth - finalWidth) / 2; // Center horizontally
+                    }
+                    
+                    pdf.addImage(imgData, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
+                    pdf.save(`ROWRIC_LIVE_AUDIT_${Date.now()}.pdf`);
+                    
+                    console.log('PDF saved successfully');
+                    
+                } catch (error) {
+                    console.error('Error during PDF export:', error);
+                    alert('Error generating PDF: ' + error.message);
+                } finally {
+                    // Remove temporary container
+                    const tempContainer = document.getElementById('pdf-export-container');
+                    if (tempContainer) {
+                        document.body.removeChild(tempContainer);
+                    }
+                }
             }
         </script>
     </body>
