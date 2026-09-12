@@ -274,11 +274,11 @@
                     <div class="flex flex-col sm:flex-row items-center gap-2 flex-wrap">
                         <div class="flex items-center gap-2">
                             <label class="text-[10px] text-zinc-400 uppercase tracking-wider">From:</label>
-                            <input type="date" id="date-from" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 140px;">
+                            <input type="text" id="date-from" placeholder="dd.mm.yyyy" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 120px;">
                         </div>
                         <div class="flex items-center gap-2">
                             <label class="text-[10px] text-zinc-400 uppercase tracking-wider">To:</label>
-                            <input type="date" id="date-to" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 140px;">
+                            <input type="text" id="date-to" placeholder="dd.mm.yyyy" class="bg-black border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500" style="width: 120px;">
                         </div>
                         <button onclick="applyDateFilter()" class="px-3 py-1 text-xs rounded font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-1.5">
                             <i class="fa-solid fa-filter text-[9px]"></i> Apply Filter
@@ -299,12 +299,19 @@
                     <p id="metric-twr-gain" class="metric-value val-pos">--%</p>
                 </div>
                 <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
-                    <p class="metric-label">Net Profit</p>
+                    <div class="flex items-center justify-between w-full">
+                        <p class="metric-label">Net Profit</p>
+                        <button onclick="toggleFinancialPrivacy()" class="text-zinc-500 hover:text-zinc-300 transition-colors" title="Toggle visibility">
+                            <i id="privacy-eye-icon" class="fa-solid fa-eye text-xs"></i>
+                        </button>
+                    </div>
                     <p id="metric-net-profit" class="metric-value val-neutral">$--</p>
                     <p id="metric-roi" class="hidden"></p>
                 </div>
                 <div class="metric-card flex flex-col items-start justify-center gap-1 min-h-[80px]">
-                    <p class="metric-label">Balance</p>
+                    <div class="flex items-center justify-between w-full">
+                        <p class="metric-label">Balance</p>
+                    </div>
                     <p id="metric-balance" class="metric-value val-neutral">$--</p>
                     <p id="metric-deposits" class="hidden"></p>
                 </div>
@@ -750,6 +757,7 @@
             let activePeriodMode = 'trade';
             let gainCalculationMethod = 'compounded';
             let portfolioDataChecksum = '';
+            let financialPrivacyEnabled = false;
             let latestPortfolioBalance = NaN;
             let totalUnrealizedPL = 0;
             let sharedInitialDeposit = 10000;
@@ -769,6 +777,40 @@
                 // Calculate unrealized as percentage of current balance (not initial deposit)
                 const currentBalance = list.length > 0 ? list[list.length - 1].balance : sharedInitialDeposit;
                 sharedUnrealizedGainPercent = currentBalance > 0 ? (totalUnrealizedPL / currentBalance) * 100 : 0;
+            }
+
+            // ============================================================
+            // FINANCIAL PRIVACY TOGGLE
+            // ============================================================
+            function toggleFinancialPrivacy() {
+                financialPrivacyEnabled = !financialPrivacyEnabled;
+                
+                // Update eye icon
+                const eyeIcon = document.getElementById('privacy-eye-icon');
+                if (financialPrivacyEnabled) {
+                    eyeIcon.classList.remove('fa-eye');
+                    eyeIcon.classList.add('fa-eye-slash');
+                } else {
+                    eyeIcon.classList.remove('fa-eye-slash');
+                    eyeIcon.classList.add('fa-eye');
+                }
+                
+                // Re-render all financial displays with current privacy state
+                if (processedList.length > 0) {
+                    updateDashboardMetrics(processedList, cachedTotalDeposits, cachedTotalWithdrawals);
+                    populateHistoryTable(processedList);
+                    computeInstitutionMetrics(processedList, cachedTotalDeposits);
+                }
+                
+                // Note: Open trades will re-render automatically on next live update
+            }
+
+            function formatFinancialValue(value, isCurrency = true) {
+                if (isCurrency) {
+                    return (value >= 0 ? '$' : '-$') + Math.abs(value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                } else {
+                    return value.toFixed(2) + '%';
+                }
             }
 
             // Sync inputs to initial values
@@ -1501,8 +1543,20 @@
                     return;
                 }
                 
-                dateFilterFrom = fromDateInput ? new Date(fromDateInput) : null;
-                dateFilterTo = toDateInput ? new Date(toDateInput) : null;
+                // Parse dd.mm.yyyy format
+                const parseDateDMY = (dateStr) => {
+                    if (!dateStr) return null;
+                    const parts = dateStr.split('.');
+                    if (parts.length !== 3) return null;
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
+                    const year = parseInt(parts[2], 10);
+                    const date = new Date(year, month, day);
+                    return isNaN(date.getTime()) ? null : date;
+                };
+                
+                dateFilterFrom = fromDateInput ? parseDateDMY(fromDateInput) : null;
+                dateFilterTo = toDateInput ? parseDateDMY(toDateInput) : null;
                 
                 // Set end date to end of day
                 if (dateFilterTo) {
@@ -1544,6 +1598,10 @@
                     if (dateFilterFrom && itemDate < dateFilterFrom) return false;
                     if (dateFilterTo && itemDate > dateFilterTo) return false;
                     
+                    // Exclude funding/unrealized transactions when date filter is enabled
+                    // "Since start" (no filter) includes deposits/withdrawals, but specific periods exclude them
+                    if (item.isFunding) return false;
+                    
                     return true;
                 });
                 
@@ -1567,31 +1625,23 @@
                 let currentCumulativeTWR = 1.0;
                 let currentCumulativeAdditive = 0.0;
                 
-                // Find the first non-funding trade to establish baseline
-                let firstTradeIndex = filteredProcessedList.findIndex(item => !item.isFunding);
+                // Start from 0 gain for filtered period (no baseline adjustment)
                 let baseGain = 0;
                 
-                if (firstTradeIndex > 0) {
-                    // Use the gain from the last funding transaction before first trade as baseline
-                    const lastFunding = filteredProcessedList.slice(0, firstTradeIndex).reverse().find(item => item.isFunding);
-                    if (lastFunding) {
-                        baseGain = lastFunding.gainPercent;
-                    }
-                }
-                
                 filteredProcessedList.forEach((item, idx) => {
-                    if (!item.isFunding && item.tradeReturnPercent !== undefined) {
+                    // Calculate cumulative gains: exclude funding when date filter is enabled, include when disabled
+                    if (item.tradeReturnPercent !== undefined && !(dateFilterEnabled && item.isFunding)) {
                         const r = item.tradeReturnPercent / 100;
                         currentCumulativeTWR *= (1.0 + r);
                         currentCumulativeAdditive += (r * 100);
                     }
                     
-                    // Adjust gain to be relative to filtered period start
+                    // Adjust gain to be relative to filtered period start (starting from 0)
                     const currentGain = gainCalculationMethod === 'additive' 
                         ? currentCumulativeAdditive 
                         : (currentCumulativeTWR - 1.0) * 100;
                     
-                    item.gainPercent = currentGain - baseGain;
+                    item.gainPercent = currentGain;
                 });
             }
 
@@ -1793,15 +1843,18 @@
                 // Calculate final gain (chart now shows closed trades only)
                 const lastIndex = effectiveList.length - 1;
                 const chartFinalGain = lastIndex === 0 ? 0 : effectiveList[lastIndex].gainPercent;
-                const finalGainWithUnrealized = chartFinalGain + unrealizedGainPercent;
-                const finalBalanceWithUnrealized = finalBalance + totalUnrealizedPL;
+                
+                // Only include unrealized gains when date filter is NOT enabled
+                const includeUnrealized = !dateFilterEnabled;
+                const finalGainWithUnrealized = includeUnrealized ? chartFinalGain + unrealizedGainPercent : chartFinalGain;
+                const finalBalanceWithUnrealized = includeUnrealized ? finalBalance + totalUnrealizedPL : finalBalance;
 
                 // Combined gain formula: ((100 + % GAIN TWR) + % GAIN IN UNREALIZED P/L) - 100
-                const combinedGain = ((100 + chartFinalGain) + unrealizedGainPercent) - 100;
+                const combinedGain = includeUnrealized ? ((100 + chartFinalGain) + unrealizedGainPercent) - 100 : chartFinalGain;
 
-                console.log('GAIN calculation - chartFinalGain:', chartFinalGain, 'unrealizedGainPercent:', unrealizedGainPercent, 'combinedGain:', combinedGain, 'totalUnrealizedPL:', totalUnrealizedPL);
+                console.log('GAIN calculation - chartFinalGain:', chartFinalGain, 'unrealizedGainPercent:', unrealizedGainPercent, 'combinedGain:', combinedGain, 'totalUnrealizedPL:', totalUnrealizedPL, 'includeUnrealized:', includeUnrealized);
 
-                let totalNetProfit = effectiveList.reduce((sum, item, idx) => (idx === 0 || item.isFunding) ? sum : sum + item.profit, 0) + totalUnrealizedPL;
+                let totalNetProfit = effectiveList.reduce((sum, item, idx) => (idx === 0 || item.isFunding) ? sum : sum + item.profit, 0) + (includeUnrealized ? totalUnrealizedPL : 0);
 
                 const twrGainElement = document.getElementById('metric-twr-gain');
                 twrGainElement.textContent = combinedGain.toFixed(2) + '%';
@@ -1814,8 +1867,8 @@
                 } else {
                     twrGainElement.classList.add('val-neutral');
                 }
-                document.getElementById('metric-net-profit').textContent = (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-                document.getElementById('metric-balance').textContent = '$' + finalBalanceWithUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                document.getElementById('metric-net-profit').textContent = financialPrivacyEnabled ? '$xxxx.xx' : (totalNetProfit >= 0 ? '$' : '-$') + Math.abs(totalNetProfit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                document.getElementById('metric-balance').textContent = financialPrivacyEnabled ? '$xxxx.xx' : '$' + finalBalanceWithUnrealized.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
                 document.getElementById('metric-deposits').textContent = 'Deposits: $' + totalDeposits.toLocaleString(undefined,{maximumFractionDigits:2});
                 let roi = totalDeposits > 0 ? (totalNetProfit / totalDeposits) * 100 : 0;
                 document.getElementById('metric-roi').textContent = `ROI: ${roi.toFixed(2)}%`;
@@ -1825,8 +1878,8 @@
                 let runningPeak = -Infinity;
                 const ddSeries = effectiveList.map((item, idx) => {
                     const isLast = idx === effectiveList.length - 1;
-                    // Add unrealized to the last point to match current drawdown calculation
-                    const gainWithUnrealized = isLast ? item.gainPercent + unrealizedGainPercent : item.gainPercent;
+                    // Add unrealized to the last point to match current drawdown calculation (only when date filter is NOT enabled)
+                    const gainWithUnrealized = (isLast && includeUnrealized) ? item.gainPercent + unrealizedGainPercent : item.gainPercent;
                     if (gainWithUnrealized > runningPeak) runningPeak = gainWithUnrealized;
                     // Calculate drawdown as percentage from peak: (current - peak) / (100 + peak) * 100
                     const currentValue = 100 + gainWithUnrealized;
@@ -1917,7 +1970,8 @@
                 const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
                 
                 // Filter only non-funding trades for TWR calculation
-                const trades = effectiveList.filter(i => !i.isFunding && i.tradeReturnPercent !== undefined);
+                // When date filter is enabled (specific period), exclude funding; when disabled (since start), include funding
+                const trades = effectiveList.filter(i => dateFilterEnabled ? (!i.isFunding && i.tradeReturnPercent !== undefined) : (i.tradeReturnPercent !== undefined));
                 if (trades.length === 0) { tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-zinc-700 italic border-none">Awaiting data...</td></tr>'; return; }
 
                 // Build compounding monthly returns using TWR (same as 3rd party)
@@ -2009,8 +2063,12 @@
                 const result = { matrix: {}, yearly: {} };
                 if (!list || list.length === 0) return result;
 
-                const firstDate = list[0].date;
-                const lastDate = list[list.length - 1].date;
+                // Filter based on date filter: exclude funding when date filter is enabled, include when disabled
+                const effectiveList = dateFilterEnabled ? list.filter(item => !item.isFunding) : list;
+                if (effectiveList.length === 0) return result;
+
+                const firstDate = effectiveList[0].date;
+                const lastDate = effectiveList[effectiveList.length - 1].date;
                 const startYear = firstDate.getFullYear();
                 const endYear = lastDate.getFullYear();
                 for (let y = startYear; y <= endYear; y++) { result.matrix[y] = Array(12).fill(0); result.yearly[y] = 0; }
@@ -2018,7 +2076,7 @@
                 // Chart shows closed trades only, no unrealized P/L
                 // Use proper drawdown calculation: (currentValue - peakValue) / peakValue * 100
                 let runningPeakValue = 100; // Start with baseline of 100%
-                list.forEach((item, idx) => {
+                effectiveList.forEach((item, idx) => {
                     const gain = idx === 0 ? 0 : item.gainPercent;
                     const currentValue = 100 + gain;
                     
@@ -2127,7 +2185,8 @@
                 const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
                 
                 // Use the same Risk of Ruin formula as the table
-                const trades = effectiveList.filter(item => !item.isFunding);
+                // When date filter is enabled (specific period), exclude funding; when disabled (since start), include funding
+                const trades = effectiveList.filter(item => dateFilterEnabled ? !item.isFunding : true);
                 const winsCount = trades.filter(t => t.profit > 0).length;
                 const lossesCount = trades.filter(t => t.profit < 0).length;
                 
@@ -2340,6 +2399,8 @@
                 
                 // Use filtered list if date filter is enabled
                 const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
+                // When date filter is enabled (specific period), already filtered to exclude funding
+                // When date filter is disabled (since start), show all including funding
                 countEl.textContent = `${effectiveList.length} Entries`;
                 const displayList = [...effectiveList].reverse();
                 if (displayList.length === 0) { tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-500 font-sans">Awaiting data records...</td></tr>`; return; }
@@ -2424,7 +2485,14 @@
                 const updateMetric = (id, val, suffix = "", isRatio = false) => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    
+                    // Check if this is a private metric (Return Expectancy)
+                    if (id === 'stat-expectancy' && financialPrivacyEnabled) {
+                        el.innerText = '$xxxx.xx';
+                    } else {
+                        el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    }
+                    
                     const threshold = isRatio ? 1.0 : 0;
                     el.className = `metric-value ${val > threshold ? 'val-pos' : val < threshold ? 'val-neg' : 'val-neutral'}`;
                 };
@@ -2438,7 +2506,14 @@
                 const updateMetric = (id, val, suffix = "", isRatio = false) => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    
+                    // Check if this is a private metric (Return Expectancy)
+                    if (id === 'stat-expectancy' && financialPrivacyEnabled) {
+                        el.innerText = '$xxxx.xx';
+                    } else {
+                        el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    }
+                    
                     const threshold = isRatio ? 1.0 : 0;
                     el.className = `metric-value ${val > threshold ? 'val-pos' : val < threshold ? 'val-neg' : 'val-neutral'}`;
                 };
@@ -2512,8 +2587,8 @@
                 // Use filtered list if date filter is enabled
                 const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
                 
-                // Use shared unrealized gain percent for drawdown chart
-                const unrealizedGainPercent = sharedUnrealizedGainPercent;
+                // Use shared unrealized gain percent for drawdown chart (only when date filter is NOT enabled)
+                const unrealizedGainPercent = dateFilterEnabled ? 0 : sharedUnrealizedGainPercent;
 
                 let aggregatedData = [], labels = [];
                 if (activePeriodMode === 'trade') {
@@ -2815,7 +2890,8 @@
             function computeInstitutionMetrics(list, totalDeposits) {
                 // Use filtered list if date filter is enabled
                 const effectiveList = dateFilterEnabled ? filteredProcessedList : list;
-                const trades = effectiveList.filter(i => !i.isFunding && i.openDate && !isNaN(i.openDate.getTime()) && !isNaN(i.date.getTime()));
+                // When date filter is enabled (specific period), exclude funding; when disabled (since start), include funding
+                const trades = effectiveList.filter(i => dateFilterEnabled ? (!i.isFunding && i.openDate && !isNaN(i.openDate.getTime()) && !isNaN(i.date.getTime())) : (i.openDate && !isNaN(i.openDate.getTime()) && !isNaN(i.date.getTime())));
                 if (trades.length === 0) return;
 
                 const initialDeposit = totalDeposits > 0 ? totalDeposits : (effectiveList.length > 0 ? effectiveList[0].balance : 10000);
@@ -2885,7 +2961,14 @@
                 const updateMetric = (id, val, suffix = "", isRatio = false) => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    
+                    // Check if this is a private metric (Return Expectancy)
+                    if (id === 'stat-expectancy' && financialPrivacyEnabled) {
+                        el.innerText = '$xxxx.xx';
+                    } else {
+                        el.innerText = (isFinite(val) ? val.toFixed(2) : '∞') + suffix;
+                    }
+                    
                     const threshold = isRatio ? 1.0 : 0;
                     el.className = `metric-value ${val > threshold ? 'val-pos' : val < threshold ? 'val-neg' : 'val-neutral'}`;
                 };
