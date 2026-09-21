@@ -153,6 +153,119 @@
             }
             .pin-shake { animation: pinShake .4s ease; }
 
+        /* ── CHECKBOX PHASE ─────────────────────────────── */
+        #checkbox-phase {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all .2s ease;
+        }
+
+        .checkbox-item:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: #3f3f46;
+        }
+
+        .checkbox-item.checked {
+            background: rgba(16,185,129,0.1);
+            border-color: #10b981;
+        }
+
+        .checkbox-custom {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #3f3f46;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s ease;
+            flex-shrink: 0;
+        }
+
+        .checkbox-item.checked .checkbox-custom {
+            background: #10b981;
+            border-color: #10b981;
+        }
+
+        .checkbox-custom::after {
+            content: '✓';
+            color: #000;
+            font-size: 12px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity .2s ease;
+        }
+
+        .checkbox-item.checked .checkbox-custom::after {
+            opacity: 1;
+        }
+
+        .checkbox-label {
+            font-size: 11px;
+            color: #a1a1aa;
+            letter-spacing: 0.02em;
+            line-height: 1.4;
+        }
+
+        .checkbox-item.checked .checkbox-label {
+            color: #f4f4f5;
+        }
+
+        #checkbox-continue-btn {
+            margin-top: 16px;
+            padding: 12px 32px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #27272a;
+            color: #52525b;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            border-radius: 9999px;
+            cursor: not-allowed;
+            transition: all .3s ease;
+        }
+
+        #checkbox-continue-btn.active {
+            background: #10b981;
+            border-color: #10b981;
+            color: #000;
+            cursor: pointer;
+        }
+
+        #checkbox-continue-btn.active:hover {
+            background: #059669;
+            border-color: #059669;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn .4s ease forwards;
+        }
+
         </style>
     </head>
 
@@ -223,6 +336,28 @@
                         <button class="pin-key del" style="width:58px;height:52px;font-size:.85rem;" onclick="pinDel()">⌫</button>
                     </div>
 
+                </div>
+
+                <!-- Checkbox Phase (shown after successful PIN entry) -->
+                <div id="checkbox-phase">
+                    <p style="font-size:10px;text-transform:uppercase;letter-spacing:.3em;color:#52525b;margin-bottom:16px;text-align:center;">Before you continue...</p>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox(0)">
+                        <div class="checkbox-custom"></div>
+                        <span class="checkbox-label">Do I have a specific decision to make right now?</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox(1)">
+                        <div class="checkbox-custom"></div>
+                        <span class="checkbox-label">Will checking the dashboard change what I do?</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox(2)">
+                        <div class="checkbox-custom"></div>
+                        <span class="checkbox-label">Is there a real reason to check now, not just curiosity?</span>
+                    </div>
+                    
+                    <button id="checkbox-continue-btn" onclick="continueToDashboard()">Continue to Dashboard</button>
                 </div>
 
                 <p id="pin-hint" style="font-size:8px;text-transform:uppercase;letter-spacing:.25em;color:#3f3f46;height:12px;margin-top:20px;"></p>
@@ -827,6 +962,7 @@
             };
             let pinEntry = '';
             let currentUser = '';
+            let checkboxStates = [false, false, false];
 
             function pinPress(digit) {
                 if (pinEntry.length >= 6) return;
@@ -858,15 +994,19 @@
                     currentUser = PIN_USERS[pinEntry];
                     updatePinDots('success');
                     setTimeout(() => {
-                        const overlay = document.getElementById('pin-overlay');
-                        const mainContent = document.getElementById('main-content');
-                        overlay.classList.add('fade-out');
-                        mainContent.style.display = 'block';
-                        setTimeout(() => overlay.style.display = 'none', 650);
-                        // Update greeting immediately after login
-                        const bangkokHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Asia/Bangkok' }).format(new Date()), 10);
-                        const greetingEl = document.getElementById('user-greeting');
-                        if (greetingEl) greetingEl.textContent = getGreetingFromHour(bangkokHour, currentUser);
+                        // Hide PIN keypad and show checkbox phase
+                        const pinKeypadWrap = document.getElementById('pin-keypad-wrap');
+                        const pinBrand = document.getElementById('pin-brand');
+                        const checkboxPhase = document.getElementById('checkbox-phase');
+                        
+                        pinKeypadWrap.style.display = 'none';
+                        pinBrand.style.display = 'none';
+                        checkboxPhase.style.display = 'flex';
+                        checkboxPhase.classList.add('fade-in');
+                        
+                        // Reset checkbox states
+                        checkboxStates = [false, false, false];
+                        updateCheckboxUI();
                     }, 350);
                 } else {
                     updatePinDots('error');
@@ -884,10 +1024,64 @@
                 }
             }
 
+            function toggleCheckbox(index) {
+                checkboxStates[index] = !checkboxStates[index];
+                updateCheckboxUI();
+            }
+
+            function updateCheckboxUI() {
+                const items = document.querySelectorAll('.checkbox-item');
+                items.forEach((item, i) => {
+                    if (checkboxStates[i]) {
+                        item.classList.add('checked');
+                    } else {
+                        item.classList.remove('checked');
+                    }
+                });
+
+                // Enable continue button only if all checkboxes are checked
+                const continueBtn = document.getElementById('checkbox-continue-btn');
+                const allChecked = checkboxStates.every(state => state);
+                if (allChecked) {
+                    continueBtn.classList.add('active');
+                } else {
+                    continueBtn.classList.remove('active');
+                }
+            }
+
+            function continueToDashboard() {
+                const allChecked = checkboxStates.every(state => state);
+                if (!allChecked) return;
+
+                const overlay = document.getElementById('pin-overlay');
+                const mainContent = document.getElementById('main-content');
+                overlay.classList.add('fade-out');
+                mainContent.style.display = 'block';
+                setTimeout(() => overlay.style.display = 'none', 650);
+                
+                // Update greeting immediately after login
+                const bangkokHour = parseInt(new Intl.DateTimeFormat('en-US', { hour:'2-digit', hour12:false, timeZone:'Asia/Bangkok' }).format(new Date()), 10);
+                const greetingEl = document.getElementById('user-greeting');
+                if (greetingEl) greetingEl.textContent = getGreetingFromHour(bangkokHour, currentUser);
+            }
+
             // Also allow physical keyboard input
             document.addEventListener('keydown', (e) => {
                 const mainContent = document.getElementById('main-content');
+                const checkboxPhase = document.getElementById('checkbox-phase');
                 if (mainContent.style.display !== 'none') return;
+                
+                // Handle checkbox phase keyboard input
+                if (checkboxPhase.style.display === 'flex') {
+                    if (e.key >= '1' && e.key <= '3') {
+                        toggleCheckbox(parseInt(e.key) - 1);
+                    } else if (e.key === 'Enter') {
+                        continueToDashboard();
+                    }
+                    return;
+                }
+                
+                // Handle PIN input
                 if (e.key >= '0' && e.key <= '9') pinPress(e.key);
                 else if (e.key === 'Backspace') pinDel();
             });
@@ -897,7 +1091,12 @@
                 const isPhone = window.innerWidth < 640;
                 const grid = document.getElementById('pin-grid');
                 const vert = document.getElementById('pin-vertical');
+                const checkboxPhase = document.getElementById('checkbox-phase');
                 if (!grid || !vert) return;
+                
+                // Only apply keypad layout if checkbox phase is not visible
+                if (checkboxPhase && checkboxPhase.style.display === 'flex') return;
+                
                 if (isPhone) {
                     grid.style.display = 'none';
                     vert.style.display = 'grid';
